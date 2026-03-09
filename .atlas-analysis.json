@@ -1,0 +1,212 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "Mangopay PHP SDK",
+  "projectDescription": "PHP client library for integrating with the Mangopay payment platform API",
+  "theme": "palm",
+  "primaryColor": "#824010",
+  "lightColor": "#d5dcec",
+  "darkColor": "#181a1d",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart",
+              "configuration"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/authentication",
+              "concepts/users",
+              "concepts/wallets",
+              "concepts/payment-flows",
+              "concepts/error-handling"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/creating-users",
+              "guides/managing-wallets",
+              "guides/processing-payins",
+              "guides/processing-payouts",
+              "guides/bank-accounts",
+              "guides/card-payments",
+              "guides/kyc-documents",
+              "guides/webhooks",
+              "guides/rate-limits"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/disputes",
+              "advanced/mandates",
+              "advanced/conversions",
+              "advanced/deposits",
+              "advanced/logging",
+              "advanced/testing"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core",
+            "pages": [
+              "api/mangopayapi",
+              "api/configuration"
+            ]
+          },
+          {
+            "group": "Users",
+            "pages": [
+              "api/users",
+              "api/user-natural",
+              "api/user-legal"
+            ]
+          },
+          {
+            "group": "Wallets & Transfers",
+            "pages": [
+              "api/wallets",
+              "api/transfers"
+            ]
+          },
+          {
+            "group": "Payment Methods",
+            "pages": [
+              "api/payins",
+              "api/payouts",
+              "api/refunds",
+              "api/cards",
+              "api/card-registrations",
+              "api/card-preauthorizations",
+              "api/bank-accounts",
+              "api/mandates"
+            ]
+          },
+          {
+            "group": "Compliance & Verification",
+            "pages": [
+              "api/kyc-documents",
+              "api/identity-verification",
+              "api/ubo-declarations",
+              "api/regulatory"
+            ]
+          },
+          {
+            "group": "Banking Features",
+            "pages": [
+              "api/banking-aliases",
+              "api/virtual-accounts",
+              "api/conversions",
+              "api/deposits"
+            ]
+          },
+          {
+            "group": "Disputes & Chargebacks",
+            "pages": [
+              "api/disputes",
+              "api/dispute-documents",
+              "api/repudiations",
+              "api/settlements"
+            ]
+          },
+          {
+            "group": "Webhooks & Events",
+            "pages": [
+              "api/hooks",
+              "api/events"
+            ]
+          },
+          {
+            "group": "Reporting",
+            "pages": [
+              "api/reports",
+              "api/reports-v2"
+            ]
+          },
+          {
+            "group": "Client & Metadata",
+            "pages": [
+              "api/clients",
+              "api/recipients"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Resources",
+        "groups": [
+          {
+            "group": "Additional Resources",
+            "pages": [
+              "resources/changelog",
+              "resources/migration-guide",
+              "resources/examples",
+              "resources/troubleshooting",
+              "resources/contributing"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Complete Mangopay REST API v2.01+ integration",
+    "User management (Natural and Legal persons)",
+    "Wallet and transfer operations",
+    "PayIn and PayOut processing",
+    "Card payment handling and 3DS authentication",
+    "Bank account management and mandates",
+    "KYC document submission and verification",
+    "Dispute and chargeback management",
+    "Webhook event handling",
+    "Multi-currency support and FX conversions",
+    "Rate limit tracking",
+    "PSR-3 logging support",
+    "Comprehensive error handling"
+  ],
+  "publicApiSurface": [
+    "MangoPayApi",
+    "Users (Natural, Legal, SCA variants)",
+    "Wallets",
+    "Transfers",
+    "PayIns",
+    "PayOuts",
+    "Refunds",
+    "Cards",
+    "CardRegistrations",
+    "CardPreAuthorizations",
+    "BankAccounts",
+    "BankingAliases",
+    "VirtualAccounts",
+    "Mandates",
+    "KycDocuments",
+    "IdentityVerifications",
+    "UboDeclarations",
+    "Disputes",
+    "DisputeDocuments",
+    "Repudiations",
+    "Settlements",
+    "Hooks",
+    "Events",
+    "Reports",
+    "ReportsV2",
+    "Conversions",
+    "Deposits",
+    "Regulatory",
+    "Clients",
+    "Recipients"
+  ]
+}
