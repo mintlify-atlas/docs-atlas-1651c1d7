@@ -1,0 +1,340 @@
+---
+title: 'Conversions'
+description: 'Manage currency conversions between wallets'
+---
+
+## Overview
+
+The Conversions API allows you to convert funds between wallets of different currencies. You can perform instant conversions at the current market rate or create quoted conversions with a guaranteed rate.
+
+Mangopay supports conversions between user wallets as well as client wallets (fees and credit wallets).
+
+## Methods
+
+### GetConversionRate
+
+Get a real-time indicative market rate for a specific currency pair.
+
+```php
+public function GetConversionRate($debitedCurrency, $creditedCurrency)
+```
+
+<ParamField path="debitedCurrency" type="string" required>
+  The sell currency – the currency of the wallet to be debited (e.g., "EUR", "USD")
+</ParamField>
+
+<ParamField path="creditedCurrency" type="string" required>
+  The buy currency – the currency of the wallet to be credited (e.g., "GBP", "USD")
+</ParamField>
+
+**Returns:** `ConversionRate` - The conversion rate object with real-time market rate
+
+**Example:**
+
+```php
+$api = new MangoPay\MangoPayApi();
+$rate = $api->Conversions->GetConversionRate('EUR', 'GBP');
+echo "Rate: " . $rate->ClientRate;
+```
+
+### CreateInstantConversion
+
+Create an instant conversion at the current market rate between user wallets.
+
+```php
+public function CreateInstantConversion($instantConversion)
+```
+
+<ParamField path="instantConversion" type="CreateInstantConversion" required>
+  The instant conversion object containing conversion details
+</ParamField>
+
+**Returns:** `Conversion` - The created conversion object
+
+**Example:**
+
+```php
+$conversion = new MangoPay\CreateInstantConversion();
+$conversion->AuthorId = 'user_123456';
+$conversion->DebitedWalletId = 'wallet_eur_123';
+$conversion->CreditedWalletId = 'wallet_gbp_456';
+$conversion->DebitedFunds = new MangoPay\Money();
+$conversion->DebitedFunds->Currency = 'EUR';
+$conversion->DebitedFunds->Amount = 10000; // 100.00 EUR
+$conversion->Tag = 'EUR to GBP conversion';
+
+$result = $api->Conversions->CreateInstantConversion($conversion);
+```
+
+### CreateClientWalletsInstantConversion
+
+Create an instant conversion at the market rate between client wallets (fees/credit).
+
+```php
+public function CreateClientWalletsInstantConversion($instantConversion)
+```
+
+<ParamField path="instantConversion" type="CreateClientWalletsInstantConversion" required>
+  The instant conversion object for client wallets
+</ParamField>
+
+**Returns:** `Conversion` - The created conversion object
+
+**Example:**
+
+```php
+$conversion = new MangoPay\CreateClientWalletsInstantConversion();
+$conversion->DebitedWalletId = 'client_wallet_eur';
+$conversion->CreditedWalletId = 'client_wallet_usd';
+$conversion->DebitedFunds = new MangoPay\Money();
+$conversion->DebitedFunds->Currency = 'EUR';
+$conversion->DebitedFunds->Amount = 50000; // 500.00 EUR
+
+$result = $api->Conversions->CreateClientWalletsInstantConversion($conversion);
+```
+
+### CreateQuotedConversion
+
+Create a conversion at a rate guaranteed by a quote.
+
+```php
+public function CreateQuotedConversion($quotedConversion)
+```
+
+<ParamField path="quotedConversion" type="CreateQuotedConversion" required>
+  The quoted conversion object linked to a ConversionQuote
+</ParamField>
+
+**Returns:** `Conversion` - The created conversion object
+
+**Example:**
+
+```php
+// First, create a quote
+$quote = new MangoPay\ConversionQuote();
+$quote->DebitedFunds = new MangoPay\Money();
+$quote->DebitedFunds->Currency = 'EUR';
+$quote->DebitedFunds->Amount = 10000;
+$quote->CreditedFunds = new MangoPay\Money();
+$quote->CreditedFunds->Currency = 'GBP';
+$createdQuote = $api->Conversions->CreateConversionQuote($quote);
+
+// Then create the conversion using the quote
+$conversion = new MangoPay\CreateQuotedConversion();
+$conversion->QuoteId = $createdQuote->Id;
+$conversion->AuthorId = 'user_123456';
+$conversion->DebitedWalletId = 'wallet_eur_123';
+$conversion->CreditedWalletId = 'wallet_gbp_456';
+$conversion->Tag = 'Quoted conversion';
+
+$result = $api->Conversions->CreateQuotedConversion($conversion);
+```
+
+### CreateClientWalletsQuotedConversion
+
+Create a quoted conversion between client wallets.
+
+```php
+public function CreateClientWalletsQuotedConversion($quotedConversion)
+```
+
+<ParamField path="quotedConversion" type="CreateClientWalletsQuotedConversion" required>
+  The quoted conversion object for client wallets. Must be linked to a quote.
+</ParamField>
+
+**Returns:** `Conversion` - The created conversion object
+
+### GetConversion
+
+Retrieve details of a specific conversion.
+
+```php
+public function GetConversion($id)
+```
+
+<ParamField path="id" type="string" required>
+  The unique identifier of the conversion
+</ParamField>
+
+**Returns:** `Conversion` - The conversion object
+
+**Example:**
+
+```php
+$conversion = $api->Conversions->GetConversion('cvr_123456');
+echo "Status: " . $conversion->Status;
+```
+
+### CreateConversionQuote
+
+Create a quote to guarantee a conversion rate.
+
+```php
+public function CreateConversionQuote($quote)
+```
+
+<ParamField path="quote" type="ConversionQuote" required>
+  The quote object specifying debited and credited funds
+</ParamField>
+
+**Returns:** `ConversionQuote` - The created quote with guaranteed rate
+
+**Example:**
+
+```php
+$quote = new MangoPay\ConversionQuote();
+$quote->DebitedFunds = new MangoPay\Money();
+$quote->DebitedFunds->Currency = 'EUR';
+$quote->DebitedFunds->Amount = 10000;
+$quote->CreditedFunds = new MangoPay\Money();
+$quote->CreditedFunds->Currency = 'GBP';
+$quote->Tag = 'Conversion quote';
+
+$createdQuote = $api->Conversions->CreateConversionQuote($quote);
+echo "Guaranteed rate valid until: " . date('Y-m-d H:i:s', $createdQuote->ExpirationDate);
+```
+
+### GetConversionQuote
+
+Retrieve details of a specific conversion quote.
+
+```php
+public function GetConversionQuote($quoteId)
+```
+
+<ParamField path="quoteId" type="string" required>
+  The unique identifier of the quote
+</ParamField>
+
+**Returns:** `ConversionQuote` - The quote object
+
+**Example:**
+
+```php
+$quote = $api->Conversions->GetConversionQuote('quote_123456');
+```
+
+## Conversion Entity
+
+The `Conversion` entity represents a currency conversion:
+
+<ResponseField name="Id" type="string">
+  The unique identifier of the conversion
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of when the conversion was created
+</ResponseField>
+
+<ResponseField name="Tag" type="string">
+  Custom data that you can add to this item
+</ResponseField>
+
+<ResponseField name="QuoteId" type="string">
+  The unique identifier of the quote that guaranteed the rate. Null for instant conversions.
+</ResponseField>
+
+<ResponseField name="Type" type="string">
+  The type of transaction. See `TransactionType`.
+</ResponseField>
+
+<ResponseField name="Nature" type="string">
+  The nature of the transaction. See `TransactionNature`.
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  The status of the transaction: `CREATED`, `SUCCEEDED`, `FAILED`. See `TransactionStatus`.
+</ResponseField>
+
+<ResponseField name="AuthorId" type="string">
+  The unique identifier of the user at the source of the transaction
+</ResponseField>
+
+<ResponseField name="DebitedWalletId" type="string">
+  The unique identifier of the debited wallet
+</ResponseField>
+
+<ResponseField name="CreditedWalletId" type="string">
+  The unique identifier of the credited wallet
+</ResponseField>
+
+<ResponseField name="DebitedFunds" type="Money">
+  The sell funds (amount and currency)
+</ResponseField>
+
+<ResponseField name="CreditedFunds" type="Money">
+  The buy funds (amount and currency)
+</ResponseField>
+
+<ResponseField name="Fees" type="Money">
+  Platform fees for this transaction. Null for instant conversions between client wallets.
+</ResponseField>
+
+<ResponseField name="RequestedFees" type="CustomFees">
+  The requested fees
+</ResponseField>
+
+<ResponseField name="ResultCode" type="string">
+  The code indicating the result of the operation
+</ResponseField>
+
+<ResponseField name="ResultMessage" type="string">
+  The explanation of the result code
+</ResponseField>
+
+<ResponseField name="ExecutionDate" type="int">
+  Unix timestamp when the status changed to SUCCEEDED. Null for CREATED and FAILED statuses.
+</ResponseField>
+
+<ResponseField name="ConversionRateResponse" type="ConversionRate">
+  Real time market rate information
+</ResponseField>
+
+<ResponseField name="MarginsResponse" type="MarginsResponse">
+  Information about margins applied
+</ResponseField>
+
+## ConversionRate Entity
+
+<ResponseField name="ClientRate" type="float">
+  The rate applied to the conversion
+</ResponseField>
+
+<ResponseField name="MarketRate" type="float">
+  The current market rate
+</ResponseField>
+
+## ConversionQuote Entity
+
+<ResponseField name="Id" type="string">
+  The unique identifier of the quote
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of when the quote was created
+</ResponseField>
+
+<ResponseField name="ExpirationDate" type="int">
+  Unix timestamp when the quote expires
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  The status of the quote: `ACTIVE`, `EXPIRED`, `CONSUMED`
+</ResponseField>
+
+<ResponseField name="DebitedFunds" type="Money">
+  The sell funds
+</ResponseField>
+
+<ResponseField name="CreditedFunds" type="Money">
+  The buy funds
+</ResponseField>
+
+<ResponseField name="ConversionRateResponse" type="ConversionRate">
+  The guaranteed conversion rate
+</ResponseField>
+
+## Related Resources
+
+- [Wallets](/api/wallets)
+- [Clients](/api/clients)

@@ -1,0 +1,324 @@
+---
+title: 'Card Pre-Authorizations'
+description: 'Create and manage card pre-authorizations in Mangopay'
+icon: 'lock'
+---
+
+The `ApiCardPreAuthorizations` class provides methods to create and manage card pre-authorizations, which reserve funds on a card without immediately capturing them.
+
+## Methods
+
+### Create
+
+Create a new pre-authorization.
+
+```php
+public function Create($cardPreAuthorization, $idempotencyKey = null)
+```
+
+<ParamField path="cardPreAuthorization" type="\MangoPay\CardPreAuthorization" required>
+  The CardPreAuthorization object to create
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key for safe retries
+</ParamField>
+
+**Returns:** `\MangoPay\CardPreAuthorization` - The created CardPreAuthorization object
+
+**Example:**
+
+```php
+$preAuth = new \MangoPay\CardPreAuthorization();
+$preAuth->AuthorId = $userId;
+$preAuth->DebitedFunds = new \MangoPay\Money();
+$preAuth->DebitedFunds->Currency = 'EUR';
+$preAuth->DebitedFunds->Amount = 5000;
+$preAuth->CardId = 'card_123456';
+$preAuth->SecureMode = 'DEFAULT';
+$preAuth->SecureModeReturnURL = 'https://example.com/return';
+
+$result = $api->CardPreAuthorizations->Create($preAuth);
+```
+
+### Get
+
+Get a pre-authorization by its ID.
+
+```php
+public function Get($cardPreAuthorizationId)
+```
+
+<ParamField path="cardPreAuthorizationId" type="string" required>
+  The unique identifier of the pre-authorization
+</ParamField>
+
+**Returns:** `\MangoPay\CardPreAuthorization` - The CardPreAuthorization object
+
+**Example:**
+
+```php
+$preAuth = $api->CardPreAuthorizations->Get('preauth_123456');
+```
+
+### Update
+
+Update a pre-authorization (typically to cancel it or adjust the payment status).
+
+```php
+public function Update($cardPreAuthorization)
+```
+
+<ParamField path="cardPreAuthorization" type="\MangoPay\CardPreAuthorization" required>
+  The CardPreAuthorization object to update (must include Id)
+</ParamField>
+
+**Returns:** `\MangoPay\CardPreAuthorization` - The updated CardPreAuthorization object
+
+**Example:**
+
+```php
+$preAuth = $api->CardPreAuthorizations->Get('preauth_123456');
+$preAuth->PaymentStatus = 'CANCELED';
+
+$result = $api->CardPreAuthorizations->Update($preAuth);
+```
+
+### GetTransactions
+
+Get all transactions (pay-ins) associated with a pre-authorization.
+
+```php
+public function GetTransactions($cardPreAuthorizationId, & $pagination = null, $filter = null, $sorting = null)
+```
+
+<ParamField path="cardPreAuthorizationId" type="string" required>
+  The ID of the pre-authorization
+</ParamField>
+
+<ParamField path="pagination" type="\MangoPay\Pagination">
+  Pagination object (passed by reference)
+</ParamField>
+
+<ParamField path="filter" type="\MangoPay\FilterTransactions">
+  Filtering options
+</ParamField>
+
+<ParamField path="sorting" type="\MangoPay\Sorting">
+  Sorting options
+</ParamField>
+
+**Returns:** `\MangoPay\Transaction[]` - Array of Transaction objects
+
+**Example:**
+
+```php
+$pagination = new \MangoPay\Pagination();
+$transactions = $api->CardPreAuthorizations->GetTransactions('preauth_123456', $pagination);
+```
+
+## CardPreAuthorization Entity
+
+The `CardPreAuthorization` entity represents a reservation of funds on a payment card.
+
+### Properties
+
+<ResponseField name="Id" type="string">
+  The unique identifier of the pre-authorization
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of when the pre-authorization was created
+</ResponseField>
+
+<ResponseField name="Tag" type="string">
+  Custom data for your use
+</ResponseField>
+
+<ResponseField name="AuthorId" type="string" required>
+  The user ID of the pre-authorization author
+</ResponseField>
+
+<ResponseField name="DebitedFunds" type="\MangoPay\Money" required>
+  The amount to pre-authorize on the card
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  The status of the pre-authorization: `CREATED`, `SUCCEEDED`, `FAILED`
+</ResponseField>
+
+<ResponseField name="PaymentStatus" type="string">
+  The payment status: `WAITING`, `CANCELED`, `EXPIRED`, `VALIDATED`
+</ResponseField>
+
+<ResponseField name="ResultCode" type="string">
+  The result code of the pre-authorization
+</ResponseField>
+
+<ResponseField name="ResultMessage" type="string">
+  The result message explaining the result code
+</ResponseField>
+
+<ResponseField name="StatementDescriptor" type="string">
+  A description that appears on the bank statement
+</ResponseField>
+
+<ResponseField name="ExecutionType" type="string">
+  How the pre-authorization is executed (always `CARD`)
+</ResponseField>
+
+<ResponseField name="SecureMode" type="string" required>
+  The 3D Secure mode: `DEFAULT`, `FORCE`, `NO_CHOICE`
+</ResponseField>
+
+<ResponseField name="CardId" type="string" required>
+  The ID of the registered card to use
+</ResponseField>
+
+<ResponseField name="SecureModeNeeded" type="bool">
+  Whether 3D Secure validation was required
+</ResponseField>
+
+<ResponseField name="SecureModeRedirectURL" type="string">
+  The URL to redirect users to for 3D Secure validation
+</ResponseField>
+
+<ResponseField name="SecureModeReturnURL" type="string" required>
+  The URL where users are redirected after 3D Secure validation
+</ResponseField>
+
+<ResponseField name="ExpirationDate" type="int">
+  Unix timestamp when the pre-authorization expires (typically 30 days)
+</ResponseField>
+
+<ResponseField name="AuthorizationDate" type="int">
+  Unix timestamp when the pre-authorization was authorized
+</ResponseField>
+
+<ResponseField name="PaymentType" type="string">
+  The type of payment (always `CARD`)
+</ResponseField>
+
+<ResponseField name="PayInId" type="string">
+  The ID of the associated pay-in (if captured)
+</ResponseField>
+
+<ResponseField name="Billing" type="\MangoPay\Billing">
+  Billing information for the transaction
+</ResponseField>
+
+<ResponseField name="SecurityInfo" type="\MangoPay\SecurityInfo">
+  Security validation information
+</ResponseField>
+
+<ResponseField name="MultiCapture" type="bool">
+  Whether multiple captures are allowed for this pre-authorization
+</ResponseField>
+
+<ResponseField name="RemainingFunds" type="\MangoPay\Money">
+  The remaining funds available for capture
+</ResponseField>
+
+<ResponseField name="IpAddress" type="string">
+  The IP address of the user
+</ResponseField>
+
+<ResponseField name="BrowserInfo" type="\MangoPay\BrowserInfo">
+  Browser information for 3DS2
+</ResponseField>
+
+<ResponseField name="Shipping" type="\MangoPay\Shipping">
+  Shipping information
+</ResponseField>
+
+<ResponseField name="Requested3DSVersion" type="string">
+  The requested 3D Secure version
+</ResponseField>
+
+<ResponseField name="Applied3DSVersion" type="string">
+  The 3D Secure version that was applied
+</ResponseField>
+
+<ResponseField name="CardInfo" type="object">
+  Information about the card used
+</ResponseField>
+
+<ResponseField name="PaymentCategory" type="string">
+  The payment category: `ECommerce` (default), `TelephoneOrder`
+</ResponseField>
+
+<ResponseField name="AuthenticationResult" type="\MangoPay\AuthenticationResult">
+  3DS authentication result
+</ResponseField>
+
+## Usage Examples
+
+### Create a Pre-Authorization
+
+```php
+$preAuth = new \MangoPay\CardPreAuthorization();
+$preAuth->AuthorId = $userId;
+$preAuth->DebitedFunds = new \MangoPay\Money();
+$preAuth->DebitedFunds->Currency = 'EUR';
+$preAuth->DebitedFunds->Amount = 5000; // €50.00
+$preAuth->CardId = 'card_123456';
+$preAuth->SecureMode = 'DEFAULT';
+$preAuth->SecureModeReturnURL = 'https://example.com/return';
+$preAuth->IpAddress = $_SERVER['REMOTE_ADDR'];
+
+$result = $api->CardPreAuthorizations->Create($preAuth);
+
+if ($result->SecureModeNeeded) {
+    // Redirect user to 3DS page
+    header('Location: ' . $result->SecureModeRedirectURL);
+    exit;
+}
+```
+
+### Capture Pre-Authorized Funds
+
+```php
+// Create a pre-authorized pay-in to capture funds
+$payIn = new \MangoPay\PayIn();
+$payIn->AuthorId = $userId;
+$payIn->CreditedWalletId = $walletId;
+$payIn->DebitedFunds = new \MangoPay\Money();
+$payIn->DebitedFunds->Currency = 'EUR';
+$payIn->DebitedFunds->Amount = 5000;
+$payIn->Fees = new \MangoPay\Money();
+$payIn->Fees->Currency = 'EUR';
+$payIn->Fees->Amount = 100;
+
+$payIn->PaymentType = 'PREAUTHORIZED';
+$payIn->ExecutionType = 'DIRECT';
+
+$paymentDetails = new \MangoPay\PayInPaymentDetailsPreAuthorized();
+$paymentDetails->PreauthorizationId = 'preauth_123456';
+$payIn->PaymentDetails = $paymentDetails;
+
+$executionDetails = new \MangoPay\PayInExecutionDetailsDirect();
+$payIn->ExecutionDetails = $executionDetails;
+
+$result = $api->PayIns->Create($payIn);
+```
+
+### Cancel a Pre-Authorization
+
+```php
+$preAuth = $api->CardPreAuthorizations->Get('preauth_123456');
+$preAuth->PaymentStatus = 'CANCELED';
+
+$result = $api->CardPreAuthorizations->Update($preAuth);
+
+if ($result->PaymentStatus === 'CANCELED') {
+    echo "Pre-authorization canceled successfully";
+}
+```
+
+<Note>
+  Pre-authorizations typically expire after 30 days. Make sure to capture the funds before the expiration date.
+</Note>
+
+<Warning>
+  The full pre-authorized amount is reserved on the user's card. If you capture a smaller amount, the remaining funds will be released automatically.
+</Warning>

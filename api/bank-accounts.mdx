@@ -1,0 +1,239 @@
+---
+title: 'Bank Accounts'
+description: 'Manage user bank accounts in Mangopay'
+icon: 'building-columns'
+---
+
+The `ApiBankAccounts` class provides methods to manage bank account information for payouts.
+
+## Methods
+
+### GetTransactions
+
+Retrieve a list of transactions for a specific bank account.
+
+```php
+public function GetTransactions($bankAccountId, & $pagination = null, $filter = null, $sorting = null)
+```
+
+<ParamField path="bankAccountId" type="string" required>
+  The unique identifier of the bank account
+</ParamField>
+
+<ParamField path="pagination" type="\MangoPay\Pagination">
+  Pagination object (passed by reference)
+</ParamField>
+
+<ParamField path="filter" type="\MangoPay\FilterTransactions">
+  Filtering options
+</ParamField>
+
+<ParamField path="sorting" type="\MangoPay\Sorting">
+  Sorting options
+</ParamField>
+
+**Returns:** `\MangoPay\Transaction[]` - Array of Transaction objects
+
+**Example:**
+
+```php
+$pagination = new \MangoPay\Pagination();
+$transactions = $api->BankAccounts->GetTransactions('bankaccount_123456', $pagination);
+
+foreach ($transactions as $transaction) {
+    echo "Transaction: " . $transaction->Id . " - " . $transaction->Status . "\n";
+}
+```
+
+<Note>
+  To create, retrieve, or update bank accounts, use the `ApiUsers` class methods:
+  - `$api->Users->CreateBankAccount($userId, $bankAccount)`
+  - `$api->Users->GetBankAccount($userId, $bankAccountId)`
+  - `$api->Users->GetBankAccounts($userId, $pagination, $sorting)`
+  - `$api->Users->DeactivateBankAccount($userId, $bankAccountId)`
+</Note>
+
+## BankAccount Entity
+
+The `BankAccount` entity represents a user's bank account for payouts.
+
+### Properties
+
+<ResponseField name="Id" type="string">
+  The unique identifier of the bank account
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of when the bank account was created
+</ResponseField>
+
+<ResponseField name="Tag" type="string">
+  Custom data for your use
+</ResponseField>
+
+<ResponseField name="UserId" type="string" required>
+  The ID of the user who owns the bank account (read-only after creation)
+</ResponseField>
+
+<ResponseField name="Type" type="string" required>
+  The type of bank account: `IBAN`, `GB`, `US`, `CA`, `OTHER` (read-only after creation)
+</ResponseField>
+
+<ResponseField name="OwnerName" type="string" required>
+  The name of the bank account owner
+</ResponseField>
+
+<ResponseField name="OwnerAddress" type="\MangoPay\Address" required>
+  The address of the bank account owner
+</ResponseField>
+
+<ResponseField name="Details" type="object" required>
+  Bank account details object (type depends on the Type property):
+  - For `IBAN`: `\MangoPay\BankAccountDetailsIBAN`
+  - For `GB`: `\MangoPay\BankAccountDetailsGB`
+  - For `US`: `\MangoPay\BankAccountDetailsUS`
+  - For `CA`: `\MangoPay\BankAccountDetailsCA`
+  - For `OTHER`: `\MangoPay\BankAccountDetailsOTHER`
+</ResponseField>
+
+<ResponseField name="Active" type="bool">
+  Whether the bank account is active and can be used for payouts
+</ResponseField>
+
+## Bank Account Types
+
+### IBAN Bank Account
+
+For European bank accounts using IBAN.
+
+```php
+$bankAccount = new \MangoPay\BankAccount();
+$bankAccount->UserId = $userId;
+$bankAccount->Type = 'IBAN';
+$bankAccount->OwnerName = 'John Doe';
+
+$address = new \MangoPay\Address();
+$address->AddressLine1 = '1 Mangopay Street';
+$address->City = 'Paris';
+$address->PostalCode = '75001';
+$address->Country = 'FR';
+$bankAccount->OwnerAddress = $address;
+
+$details = new \MangoPay\BankAccountDetailsIBAN();
+$details->IBAN = 'FR7630004000031234567890143';
+$details->BIC = 'BNPAFRPP';
+$bankAccount->Details = $details;
+
+$result = $api->Users->CreateBankAccount($userId, $bankAccount);
+```
+
+### GB Bank Account
+
+For UK bank accounts using sort code and account number.
+
+```php
+$bankAccount = new \MangoPay\BankAccount();
+$bankAccount->UserId = $userId;
+$bankAccount->Type = 'GB';
+$bankAccount->OwnerName = 'John Doe';
+$bankAccount->OwnerAddress = $address;
+
+$details = new \MangoPay\BankAccountDetailsGB();
+$details->AccountNumber = '12345678';
+$details->SortCode = '010203';
+$bankAccount->Details = $details;
+
+$result = $api->Users->CreateBankAccount($userId, $bankAccount);
+```
+
+### US Bank Account
+
+For US bank accounts using ABA routing number.
+
+```php
+$bankAccount = new \MangoPay\BankAccount();
+$bankAccount->UserId = $userId;
+$bankAccount->Type = 'US';
+$bankAccount->OwnerName = 'John Doe';
+$bankAccount->OwnerAddress = $address;
+
+$details = new \MangoPay\BankAccountDetailsUS();
+$details->AccountNumber = '123456789';
+$details->ABA = '123456789';
+$details->DepositAccountType = 'CHECKING'; // or 'SAVINGS'
+$bankAccount->Details = $details;
+
+$result = $api->Users->CreateBankAccount($userId, $bankAccount);
+```
+
+### CA Bank Account
+
+For Canadian bank accounts.
+
+```php
+$bankAccount = new \MangoPay\BankAccount();
+$bankAccount->UserId = $userId;
+$bankAccount->Type = 'CA';
+$bankAccount->OwnerName = 'John Doe';
+$bankAccount->OwnerAddress = $address;
+
+$details = new \MangoPay\BankAccountDetailsCA();
+$details->BankName = 'Royal Bank of Canada';
+$details->InstitutionNumber = '001';
+$details->BranchCode = '12345';
+$details->AccountNumber = '1234567';
+$bankAccount->Details = $details;
+
+$result = $api->Users->CreateBankAccount($userId, $bankAccount);
+```
+
+### OTHER Bank Account
+
+For other international bank accounts.
+
+```php
+$bankAccount = new \MangoPay\BankAccount();
+$bankAccount->UserId = $userId;
+$bankAccount->Type = 'OTHER';
+$bankAccount->OwnerName = 'John Doe';
+$bankAccount->OwnerAddress = $address;
+
+$details = new \MangoPay\BankAccountDetailsOTHER();
+$details->Country = 'JP';
+$details->BIC = 'SOGEFRPP';
+$details->AccountNumber = '123456789';
+$bankAccount->Details = $details;
+
+$result = $api->Users->CreateBankAccount($userId, $bankAccount);
+```
+
+## Usage Examples
+
+### Deactivate a Bank Account
+
+```php
+// Deactivate a bank account
+$result = $api->Users->DeactivateBankAccount($userId, $bankAccountId);
+
+if (!$result->Active) {
+    echo "Bank account deactivated successfully";
+}
+```
+
+### List User's Bank Accounts
+
+```php
+$pagination = new \MangoPay\Pagination();
+$bankAccounts = $api->Users->GetBankAccounts($userId, $pagination);
+
+foreach ($bankAccounts as $account) {
+    echo "Bank Account: " . $account->Id . "\n";
+    echo "Type: " . $account->Type . "\n";
+    echo "Owner: " . $account->OwnerName . "\n";
+    echo "Active: " . ($account->Active ? 'Yes' : 'No') . "\n\n";
+}
+```
+
+<Warning>
+  Bank account information cannot be updated once created. If you need to change bank account details, deactivate the old account and create a new one.
+</Warning>

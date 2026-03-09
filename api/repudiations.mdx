@@ -1,0 +1,226 @@
+---
+title: "ApiRepudiations"
+description: "API methods for managing repudiations"
+---
+
+## Overview
+
+The `ApiRepudiations` class provides methods for managing repudiations. A repudiation is created when a dispute is lost, resulting in funds being withdrawn from your account into a dedicated repudiation wallet.
+
+## Methods
+
+### Get
+
+Retrieve a repudiation by ID.
+
+```php
+public function Get(string $repudiationId): Repudiation
+```
+
+<ParamField path="repudiationId" type="string" required>
+  The repudiation identifier
+</ParamField>
+
+**Returns:** `Repudiation` object
+
+**Example:**
+
+```php
+$repudiation = $api->Repudiations->Get($repudiationId);
+echo "Repudiation amount: " . $repudiation->DebitedFunds->Amount . "\n";
+echo "Reason: " . $repudiation->DisputeReasonType . "\n";
+```
+
+### GetRefunds
+
+Retrieve refunds pertaining to a repudiation.
+
+```php
+public function GetRefunds(string $repudiationId, ?Pagination &$pagination = null, ?FilterRefunds $filter = null, ?Sorting $sorting = null): array
+```
+
+<ParamField path="repudiationId" type="string" required>
+  Repudiation identifier
+</ParamField>
+
+<ParamField path="pagination" type="Pagination">
+  Pagination parameters (passed by reference)
+</ParamField>
+
+<ParamField path="filter" type="FilterRefunds">
+  Filter parameters
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting parameters
+</ParamField>
+
+**Returns:** Array of `Refund` objects
+
+**Example:**
+
+```php
+$pagination = new MangoPay\Pagination(1, 10);
+$refunds = $api->Repudiations->GetRefunds($repudiationId, $pagination);
+
+foreach ($refunds as $refund) {
+    echo "Refund {$refund->Id}: " . $refund->Status . "\n";
+}
+```
+
+## Repudiation Entity
+
+The `Repudiation` object inherits from `Transaction` and contains:
+
+<ResponseField name="Id" type="string">
+  Unique identifier
+</ResponseField>
+
+<ResponseField name="AuthorId" type="string">
+  User ID whose wallet was debited
+</ResponseField>
+
+<ResponseField name="DebitedFunds" type="Money">
+  Amount withdrawn due to lost dispute
+</ResponseField>
+
+<ResponseField name="CreditedFunds" type="Money">
+  Amount credited to repudiation wallet
+</ResponseField>
+
+<ResponseField name="Fees" type="Money">
+  Fees charged for the repudiation
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  Transaction status (SUCCEEDED, FAILED)
+</ResponseField>
+
+<ResponseField name="ResultCode" type="string">
+  Result code
+</ResponseField>
+
+<ResponseField name="ResultMessage" type="string">
+  Human-readable result message
+</ResponseField>
+
+<ResponseField name="DisputeId" type="string">
+  ID of the dispute that led to this repudiation
+</ResponseField>
+
+<ResponseField name="InitialTransactionId" type="string">
+  ID of the original transaction
+</ResponseField>
+
+<ResponseField name="DisputeReasonType" type="string">
+  Reason for the dispute (FRAUD, DUPLICATE, etc.)
+</ResponseField>
+
+<ResponseField name="CreditedWalletId" type="string">
+  ID of the repudiation wallet
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of creation
+</ResponseField>
+
+<ResponseField name="ExecutionDate" type="int">
+  Unix timestamp of execution
+</ResponseField>
+
+## Understanding Repudiations
+
+Repudiations occur when:
+1. A user initiates a chargeback with their bank
+2. You contest the dispute with evidence
+3. The bank rules in favor of the cardholder
+4. Funds are automatically withdrawn from your wallet
+5. A repudiation transaction is created
+
+The repudiation amount includes:
+- The disputed transaction amount
+- Any applicable fees
+
+## Handling Repudiations
+
+```php
+// Get a repudiation
+$repudiation = $api->Repudiations->Get($repudiationId);
+
+if ($repudiation->Status === 'SUCCEEDED') {
+    // Repudiation was processed
+    $lostAmount = $repudiation->DebitedFunds->Amount;
+    
+    // Check related dispute
+    $dispute = $api->Disputes->Get($repudiation->DisputeId);
+    echo "Lost dispute type: " . $dispute->DisputeType . "\n";
+    
+    // Create settlement transfer to cover the repudiation
+    $transfer = new MangoPay\SettlementTransfer();
+    $transfer->AuthorId = $yourUserId;
+    $transfer->DebitedFunds = new MangoPay\Money();
+    $transfer->DebitedFunds->Amount = $lostAmount;
+    $transfer->DebitedFunds->Currency = $repudiation->DebitedFunds->Currency;
+    $transfer->Fees = new MangoPay\Money();
+    $transfer->Fees->Amount = 0;
+    $transfer->Fees->Currency = $repudiation->DebitedFunds->Currency;
+    
+    $settlementTransfer = $api->Disputes->CreateSettlementTransfer(
+        $transfer,
+        $repudiation->Id
+    );
+    
+    echo "Settlement transfer created: " . $settlementTransfer->Id . "\n";
+}
+```
+
+## Settlement Process
+
+After a repudiation:
+
+1. **Repudiation Wallet**: Funds are moved to a dedicated repudiation wallet
+2. **Settlement Transfer**: You must create a settlement transfer from one of your wallets to cover the repudiation
+3. **Balance Restoration**: Once settled, the repudiation is closed
+
+<Warning>
+Repudiations must be settled promptly. Mangopay may automatically debit your fees wallet or client wallet if a repudiation remains unsettled.
+</Warning>
+
+## Example: Complete Repudiation Handling
+
+```php
+// Monitor repudiations via webhook or polling
+$filter = new MangoPay\FilterDisputes();
+$filter->Status = 'CLOSED'; // Lost disputes
+$disputes = $api->Disputes->GetAll(null, null, $filter);
+
+foreach ($disputes as $dispute) {
+    if ($dispute->ResultCode === 'LOST') {
+        // Get the repudiation
+        $repudiation = $api->Disputes->GetRepudiation($dispute->RepudiationId);
+        
+        // Create settlement transfer
+        $transfer = new MangoPay\SettlementTransfer();
+        $transfer->AuthorId = $platformOwnerId;
+        $transfer->DebitedFunds = clone $repudiation->DebitedFunds;
+        $transfer->Fees = new MangoPay\Money();
+        $transfer->Fees->Amount = 0;
+        $transfer->Fees->Currency = $repudiation->DebitedFunds->Currency;
+        
+        $api->Disputes->CreateSettlementTransfer(
+            $transfer,
+            $repudiation->Id
+        );
+        
+        // Log the loss
+        error_log("Settled repudiation {$repudiation->Id} for €" . 
+                  ($repudiation->DebitedFunds->Amount / 100));
+    }
+}
+```
+
+## See Also
+
+- [Disputes API](/api/disputes)
+- [Settlements API](/api/settlements)
+- [Disputes Guide](/advanced/disputes)

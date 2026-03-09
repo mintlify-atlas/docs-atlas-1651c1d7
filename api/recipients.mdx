@@ -1,0 +1,411 @@
+---
+title: "ApiRecipients"
+description: "API methods for managing payout recipients"
+---
+
+## Overview
+
+The `ApiRecipients` class provides methods for managing payout recipients. Recipients represent individuals or entities that can receive payouts through various payout methods and countries.
+
+<Info>
+Recipients are used with the Echo API for managing international and local bank transfer payouts with dynamic validation based on country and payout method.
+</Info>
+
+## Methods
+
+### Create
+
+Create a new recipient for a user.
+
+```php
+public function Create(Recipient $recipient, string $userId, ?string $idempotencyKey = null): Recipient
+```
+
+<ParamField path="recipient" type="Recipient" required>
+  Recipient object with payout details
+</ParamField>
+
+<ParamField path="userId" type="string" required>
+  User ID who owns the recipient
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Idempotency key for request replication
+</ParamField>
+
+**Returns:** Created `Recipient` object
+
+**Example:**
+
+```php
+$recipient = new MangoPay\Recipient();
+$recipient->Type = 'Individual';
+$recipient->PayoutMethodType = 'LocalBankTransfer';
+$recipient->Country = 'US';
+$recipient->Currency = 'USD';
+$recipient->FirstName = 'John';
+$recipient->LastName = 'Doe';
+$recipient->BankAccountNumber = '123456789';
+$recipient->BankRoutingNumber = '021000021';
+
+$createdRecipient = $api->Recipients->Create($recipient, $userId);
+echo "Recipient created: {$createdRecipient->Id}\n";
+```
+
+### Get
+
+Retrieve a recipient by ID.
+
+```php
+public function Get(string $recipientId): Recipient
+```
+
+<ParamField path="recipientId" type="string" required>
+  Recipient identifier
+</ParamField>
+
+**Returns:** `Recipient` object
+
+**Example:**
+
+```php
+$recipient = $api->Recipients->Get($recipientId);
+echo "Recipient: {$recipient->FirstName} {$recipient->LastName}\n";
+echo "Country: {$recipient->Country}\n";
+echo "Status: {$recipient->Status}\n";
+```
+
+### GetUserRecipients
+
+Retrieve all recipients for a specific user.
+
+```php
+public function GetUserRecipients(string $userId, ?Pagination $pagination = null, ?Sorting $sorting = null, ?FilterRecipients $filter = null): array
+```
+
+<ParamField path="userId" type="string" required>
+  User identifier
+</ParamField>
+
+<ParamField path="pagination" type="Pagination">
+  Pagination parameters
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting parameters
+</ParamField>
+
+<ParamField path="filter" type="FilterRecipients">
+  Filter recipients
+</ParamField>
+
+**Returns:** Array of `Recipient` objects
+
+**Example:**
+
+```php
+$pagination = new MangoPay\Pagination(1, 20);
+$recipients = $api->Recipients->GetUserRecipients($userId, $pagination);
+
+foreach ($recipients as $recipient) {
+    echo "Recipient {$recipient->Id}: {$recipient->FirstName} {$recipient->LastName}\n";
+}
+```
+
+### GetPayoutMethods
+
+See available payout methods by currency and country.
+
+```php
+public function GetPayoutMethods(string $country, string $currency): PayoutMethods
+```
+
+<ParamField path="country" type="string" required>
+  2-letter ISO country code
+</ParamField>
+
+<ParamField path="currency" type="string" required>
+  3-letter ISO currency code
+</ParamField>
+
+**Returns:** `PayoutMethods` object with available methods
+
+**Example:**
+
+```php
+$payoutMethods = $api->Recipients->GetPayoutMethods('US', 'USD');
+
+foreach ($payoutMethods->Methods as $method) {
+    echo "Method: {$method->Type}\n";
+    echo "Fee: {$method->Fee}\n";
+}
+```
+
+### GetSchema
+
+Get the recipient schema for specific payout method, type, currency, and country.
+
+```php
+public function GetSchema(string $payoutMethodType, string $recipientType, string $currency, string $country): RecipientSchema
+```
+
+<ParamField path="payoutMethodType" type="string" required>
+  Payout method (LocalBankTransfer, InternationalBankTransfer)
+</ParamField>
+
+<ParamField path="recipientType" type="string" required>
+  Recipient type (Individual, Business)
+</ParamField>
+
+<ParamField path="currency" type="string" required>
+  3-letter ISO currency code
+</ParamField>
+
+<ParamField path="country" type="string" required>
+  2-letter ISO country code
+</ParamField>
+
+**Returns:** `RecipientSchema` object with required and optional fields
+
+**Example:**
+
+```php
+$schema = $api->Recipients->GetSchema(
+    'LocalBankTransfer',
+    'Individual',
+    'USD',
+    'US'
+);
+
+echo "Required fields:\n";
+foreach ($schema->RequiredFields as $field) {
+    echo "  - {$field->Name} ({$field->Type})\n";
+}
+```
+
+### Validate
+
+Validate recipient data before creating.
+
+```php
+public function Validate(Recipient $recipient, string $userId, ?string $idempotencyKey = null)
+```
+
+<ParamField path="recipient" type="Recipient" required>
+  Recipient object to validate
+</ParamField>
+
+<ParamField path="userId" type="string" required>
+  User ID
+</ParamField>
+
+**Example:**
+
+```php
+$recipient = new MangoPay\Recipient();
+$recipient->Type = 'Individual';
+$recipient->PayoutMethodType = 'LocalBankTransfer';
+$recipient->Country = 'US';
+$recipient->Currency = 'USD';
+$recipient->FirstName = 'John';
+$recipient->LastName = 'Doe';
+$recipient->BankAccountNumber = '123456789';
+$recipient->BankRoutingNumber = '021000021';
+
+try {
+    $api->Recipients->Validate($recipient, $userId);
+    echo "Recipient data is valid\n";
+} catch (Exception $e) {
+    echo "Validation failed: " . $e->getMessage() . "\n";
+}
+```
+
+### Deactivate
+
+Deactivate a recipient.
+
+```php
+public function Deactivate(string $recipientId): Recipient
+```
+
+<ParamField path="recipientId" type="string" required>
+  Recipient identifier
+</ParamField>
+
+**Returns:** Deactivated `Recipient` object
+
+**Example:**
+
+```php
+$recipient = $api->Recipients->Deactivate($recipientId);
+echo "Recipient status: {$recipient->Status}\n"; // DEACTIVATED
+```
+
+## Recipient Entity
+
+<ResponseField name="Id" type="string">
+  Unique identifier
+</ResponseField>
+
+<ResponseField name="Type" type="string">
+  Recipient type (Individual, Business)
+</ResponseField>
+
+<ResponseField name="PayoutMethodType" type="string">
+  Payout method (LocalBankTransfer, InternationalBankTransfer)
+</ResponseField>
+
+<ResponseField name="Country" type="string">
+  2-letter ISO country code
+</ResponseField>
+
+<ResponseField name="Currency" type="string">
+  3-letter ISO currency code
+</ResponseField>
+
+<ResponseField name="FirstName" type="string">
+  First name (for individuals)
+</ResponseField>
+
+<ResponseField name="LastName" type="string">
+  Last name (for individuals)
+</ResponseField>
+
+<ResponseField name="CompanyName" type="string">
+  Company name (for businesses)
+</ResponseField>
+
+<ResponseField name="BankAccountNumber" type="string">
+  Bank account number
+</ResponseField>
+
+<ResponseField name="BankRoutingNumber" type="string">
+  Bank routing/sort code (country-specific)
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  Recipient status (ACTIVE, DEACTIVATED)
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of creation
+</ResponseField>
+
+## Complete Workflow: Creating Recipients
+
+```php
+// Step 1: Check available payout methods
+$payoutMethods = $api->Recipients->GetPayoutMethods('US', 'USD');
+echo "Available payout methods for US/USD:\n";
+foreach ($payoutMethods->Methods as $method) {
+    echo "  - {$method->Type}\n";
+}
+
+// Step 2: Get schema for chosen method
+$schema = $api->Recipients->GetSchema(
+    'LocalBankTransfer',
+    'Individual',
+    'USD',
+    'US'
+);
+
+echo "\nRequired fields:\n";
+foreach ($schema->RequiredFields as $field) {
+    echo "  - {$field->Name} ({$field->Type})\n";
+}
+
+// Step 3: Create recipient with required fields
+$recipient = new MangoPay\Recipient();
+$recipient->Type = 'Individual';
+$recipient->PayoutMethodType = 'LocalBankTransfer';
+$recipient->Country = 'US';
+$recipient->Currency = 'USD';
+$recipient->FirstName = 'John';
+$recipient->LastName = 'Doe';
+$recipient->BankAccountNumber = '123456789';
+$recipient->BankRoutingNumber = '021000021';
+$recipient->Address = new MangoPay\Address();
+$recipient->Address->AddressLine1 = '123 Main St';
+$recipient->Address->City = 'New York';
+$recipient->Address->PostalCode = '10001';
+$recipient->Address->Country = 'US';
+
+// Step 4: Validate before creating
+try {
+    $api->Recipients->Validate($recipient, $userId);
+    
+    // Step 5: Create the recipient
+    $createdRecipient = $api->Recipients->Create($recipient, $userId);
+    echo "\nRecipient created: {$createdRecipient->Id}\n";
+    
+    // Step 6: Use recipient for payout (see Settlements API)
+    
+} catch (Exception $e) {
+    echo "Error: " . $e->getMessage() . "\n";
+}
+```
+
+## International Transfer Example
+
+```php
+// Create recipient for international transfer to UK
+$recipient = new MangoPay\Recipient();
+$recipient->Type = 'Individual';
+$recipient->PayoutMethodType = 'InternationalBankTransfer';
+$recipient->Country = 'GB';
+$recipient->Currency = 'GBP';
+$recipient->FirstName = 'Jane';
+$recipient->LastName = 'Smith';
+$recipient->BankAccountNumber = '12345678'; // UK account number
+$recipient->BankRoutingNumber = '123456'; // UK sort code
+$recipient->Address = new MangoPay\Address();
+$recipient->Address->AddressLine1 = '10 Downing Street';
+$recipient->Address->City = 'London';
+$recipient->Address->PostalCode = 'SW1A 2AA';
+$recipient->Address->Country = 'GB';
+
+$createdRecipient = $api->Recipients->Create($recipient, $userId);
+```
+
+## Managing Multiple Recipients
+
+```php
+// Get all recipients for a user
+$recipients = $api->Recipients->GetUserRecipients($userId);
+
+// Filter active recipients
+$activeRecipients = array_filter($recipients, function($r) {
+    return $r->Status === 'ACTIVE';
+});
+
+echo "Active recipients:\n";
+foreach ($activeRecipients as $recipient) {
+    $name = $recipient->Type === 'Individual'
+        ? "{$recipient->FirstName} {$recipient->LastName}"
+        : $recipient->CompanyName;
+    
+    echo "  {$recipient->Id}: {$name} ({$recipient->Country}/{$recipient->Currency})\n";
+}
+
+// Deactivate old recipients
+foreach ($recipients as $recipient) {
+    if (shouldDeactivate($recipient)) {
+        $api->Recipients->Deactivate($recipient->Id);
+        echo "Deactivated recipient {$recipient->Id}\n";
+    }
+}
+```
+
+<Tip>
+Use the schema endpoint to dynamically build forms that adapt to different countries and payout methods. Required fields vary by country and payment method.
+</Tip>
+
+<Warning>
+Validate recipient data before creation to avoid errors. Different countries have different validation rules for bank account numbers and routing codes.
+</Warning>
+
+## See Also
+
+- [Settlements API](/api/settlements) - Use recipients for bulk payouts
+- [PayOuts API](/api/payouts) - Standard payout methods
+- [Bank Accounts API](/api/bank-accounts) - Traditional bank account management

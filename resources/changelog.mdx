@@ -1,0 +1,356 @@
+---
+title: Changelog
+description: Release notes and version history for the Mangopay PHP SDK
+---
+
+This page contains the complete version history of the Mangopay PHP SDK, including all features, improvements, and bug fixes across releases.
+
+## Latest Releases
+
+### [3.50.1] - 2026-02-23
+
+#### Added - ChargeBearer body parameter on payouts
+
+On [POST Create a Payout](/api-reference/payouts/create-payout), platforms can now request to pay all SWIFT fees using the `OUR` value of the new `ChargeBearer` property ([API release note](/release-notes/api/2026-02-16)).
+
+#### Added - AuthenticationType response property on card pay-ins
+
+The `AuthenticationResult.AuthenticationType` response property is now returned on card pay-ins.
+
+#### Added - TelephoneOrder body parameter on recurring card pay-ins
+
+To support the `TelephoneOrder` property on [POST Create a Recurring PayIn (MIT)](/api-reference/recurring-card-payins/create-recurring-payin-cit) and [POST Create a Recurring PayIn (CIT)](/api-reference/recurring-card-payins/create-recurring-payin-mit), the SDK now handles the `PaymentCategory` parameter.
+
+### [3.50.0] - 2026-02-12
+
+<Warning>
+This release contains breaking changes related to FX fees and Settlement upload endpoints.
+</Warning>
+
+#### FX - Breaking change: Custom fees
+
+To support percentage-based FX fees ([API release note](/release-notes/api/2026-02-11)):
+- **Breaking change** – The `CreateInstantConversion.Fees` type is now `CustomFees` instead of `Money`, to support the new FX fees structure of `Type` (`PERCENTAGE` | `FIXED`) and `Value`
+- **Breaking change** - The `ConversionQuote.Fees` type is now `CustomFees` instead of `Money`, to support the new FX fees structure of `Type` (`PERCENTAGE` | `FIXED`) and `Value`
+- Added `RequestedFees` to `ConversionQuote` and `Conversion`
+
+#### FX - Added: User margin
+
+To support the FX user margin ([API release note](/release-notes/api/2026-02-11)):
+- Added `UserMargin` to `CreateInstantConversion` and `ConversionQuote`
+- Added `MarginsResponse` to `Conversion` and `ConversionQuote`
+
+#### Echo - Breaking change: Settlement upload endpoints
+
+To support the new behavior of the [POST Create a Settlement](/api-reference/settlements/create-settlement) endpoint:
+- Updated `settlement_sample.csv` and tests
+- Added `FileName` and `UploadUrl` to `Settlement`
+- Added `GenerateSettlementUploadUrl` interface
+- **Breaking change** – Replaced `upload` method in `ApiSettlements` with `GenerateUploadUrl`
+- **Breaking change** – Replaced `update` method in `ApiSettlements` with `GenerateNewUploadUrl`
+
+#### Echo - New endpoints
+
+- Added `GetValidations` method to support [GET View validations for a Settlement](/api-reference/settlements/view-settlement-validations)
+- Added `Cancel` method to support [PUT Cancel a Settlement](/api-reference/settlements/cancel-settlement)
+- Added `CreatePayInIntentRefund` method to support [POST Create a Refund of an Intent](/api-reference/intents/create-intent-refund)
+- Added `ReversePayInIntentRefund` method to support [POST Reverse the Refund of an Intent](/api-reference/intents/create-intent-refund)
+- Added `CreatePayInIntentDispute` method to support [POST Create a Dispute of an Intent](/api-reference/intents/create-intent-refund)
+- Added `UpdatePayInIntentDisputeOutcome` method to support [PUT Update an Intent Dispute](/api-reference/intents/create-intent-dispute)
+
+#### Echo - New properties
+
+- Added `SplitOriginWalletId` to `PayInIntentLineItem`, `PayInIntentSplit`
+- Added `UnfundedSellerAmount` to `PayInIntentLineItem`
+- Added `UnfundedAmount` to `PayInIntent`
+
+#### Fixed - VirtualAccountCapabilities
+
+Fixed `LocalPayInAvailable` and `InternationalPayInAvailable` in `VirtualAccountCapabilities` class.
+
+### [3.49.0] - 2026-01-27
+
+#### Added
+
+- Support for [GET View the SCA status of a User](https://docs.mangopay.com/api-reference/users/view-user-sca-status) endpoint ([API release note](https://docs.mangopay.com/release-notes/api/2026-01-15))
+- Support for new [event types](https://docs.mangopay.com/webhooks/event-types#mangopay-sca-email-and-phone-number-verification):
+  - `SCA_CONTACT_INFORMATION_UPDATE_CONSENT_GIVEN`
+  - `SCA_CONTACT_INFORMATION_UPDATE_CONSENT_REVOKED`
+  - `SCA_TRANSFER_CONSENT_GIVEN`
+  - `SCA_TRANSFER_CONSENT_REVOKED`
+  - `SCA_RECIPIENT_REGISTRATION_CONSENT_GIVEN`
+  - `SCA_RECIPIENT_REGISTRATION_CONSENT_REVOKED`
+  - `SCA_VIEW_ACCOUNT_INFORMATION_CONSENT_GIVEN`
+  - `SCA_VIEW_ACCOUNT_INFORMATION_CONSENT_REVOKED`
+  - `SCA_EMAIL_VERIFIED`
+  - `SCA_PHONE_NUMBER_VERIFIED`
+- Support for `RecipientId` property on [payouts](https://docs.mangopay.com/api-reference/payouts/create-payout) ([API release note](https://docs.mangopay.com/release-notes/api/2026-01-27))
+
+### [3.48.0] - 2025-11-28
+
+#### Changed
+
+- Migrated to V4 naming convention
+
+### [3.47.1] - 2025-11-25
+
+#### Added
+
+- Support for `ScaContext` on [POST Create a Recipient](https://docs.mangopay.com/api-reference/recipients/create-recipient) for platforms taking action by [proxy with consent](https://docs.mangopay.com/guides/sca/proxy-management) from the user ([API release note](https://docs.mangopay.com/release-notes/api/2025-11-17))
+
+### [3.47.0] - 2025-10-27
+
+#### Added
+
+- New [POST Manage proxy consent for a User](https://docs.mangopay.com/api-reference/users/manage-proxy-consent) endpoint to obtain and manage user consent via the hosted SCA experience
+- `ScaContext` request parameter on all user POST and PUT endpoints, enabling platforms to request these actions with `USER_NOT_PRESENT`
+- Support for the `Licensor` property on [GET View a Client](https://docs.mangopay.com/api-reference/client/view-client)
+
+#### Changed
+
+- `x-tenant-id` deprecated as no longer necessary for UK platforms; the parameter is ignored by Mangopay
+
+## Previous Releases
+
+<AccordionGroup>
+  <Accordion title="Version 3.46.0 - October 2025">
+    ### Added
+    
+    - [Verification of Payee (VOP)](https://docs.mangopay.com/guides/vop/recipients-payouts) API response fields (`RecipientVerificationOfPayee` and sub-properties)
+    - Support for [POST Cancel an Intent](https://docs.mangopay.com/api-reference/intents/cancel-intent) endpoint for [Echo](https://docs.mangopay.com/guides/echo)
+    - Support for [POST Submit data for a PayPal PayIn](https://docs.mangopay.com/api-reference/paypal/submit-data-paypal-payin) endpoint
+  </Accordion>
+
+  <Accordion title="Version 3.45.2 - September 2025">
+    ### Added
+    
+    - Support for `ProfilingAttemptReference` on all payment methods for Mangopay's Fraud Prevention solution
+    - Webhook event types for [Echo](https://docs.mangopay.com/guides/echo):
+      - `INTENT_AUTHORIZED`, `INTENT_CAPTURED`, `INTENT_REFUNDED`, `INTENT_REFUND_REVERSED`
+      - `INTENT_DISPUTE_CREATED`, `INTENT_DISPUTE_DEFENDED`, `INTENT_DISPUTE_WON`, `INTENT_DISPUTE_LOST`
+      - `INTENT_SETTLED_NOT_PAID`, `INTENT_PAID`
+      - `SPLIT_CREATED`, `SPLIT_PENDING_FUNDS_RECEPTION`, `SPLIT_AVAILABLE`, `SPLIT_REJECTED`, `SPLIT_REVERSED`
+    - Support for `VirtualAccountPurpose` on Banking Alias object
+  </Accordion>
+
+  <Accordion title="Version 3.45.1 - September 2025">
+    ### Added
+    
+    - Support for `Fees` on `ConversionQuote`
+    
+    ### Improved
+    
+    - OAuth token refresh buffer before expiry updated to 30s
+    - Curl verification of SSL certificate
+    - PHP 8.2 compatibility
+    
+    ### Fixed
+    
+    - Tests fixed
+  </Accordion>
+
+  <Accordion title="Version 3.45.0 - August 2025">
+    <Warning>
+    Potentially breaking: The new `GetSchema` typings may result in a breaking change if your integration relies on the `stdClass` returned previously.
+    </Warning>
+    
+    ### Changed
+    
+    - Type casting to deserialize arrays in `GetSchema`
+    - Made `PendingUserAction` nullable
+    
+    ### Added
+    
+    - Support for [POST Create a Bank Wire to the Repudiation Wallet](https://docs.mangopay.com/api-reference/dispute-settlement/create-bank-wire-payin-to-repudiation-wallet)
+  </Accordion>
+
+  <Accordion title="Version 3.44.0 - August 2025">
+    ### Added
+    
+    Support for new Splits endpoints for Echo ([API release note](https://docs.mangopay.com/release-notes/api/2025-07-16)):
+    - [PUT Update a Split of an Intent](https://docs.mangopay.com/api-reference/intents/update-intent-split)
+    - [POST Execute a Split of an Intent](https://docs.mangopay.com/api-reference/intents/execute-intent-split)
+    - [POST Reverse the Split of an Intent](https://docs.mangopay.com/api-reference/intents/reverse-intent-split)
+    - [GET View a Split of an Intent](https://docs.mangopay.com/api-reference/intents/view-intent-split)
+    
+    New `ReportTypes` for Echo:
+    - `ECHO_INTENT`
+    - `ECHO_INTENT_ACTION`
+    - `ECHO_SETTLEMENT`
+    - `ECHO_SPLIT`
+  </Accordion>
+</AccordionGroup>
+
+## 2024 Releases
+
+<AccordionGroup>
+  <Accordion title="Version 3.32.0 - October 2024">
+    ### Added
+    
+    New endpoints for the Virtual Account object:
+    - Create a Virtual Account
+    - Deactivate a Virtual Account
+    - View a Virtual Account
+    - List Virtual Accounts for a Wallet
+    - View Client Availabilities
+  </Accordion>
+
+  <Accordion title="Version 3.31.0 - July 2024">
+    ### Added
+    
+    - New endpoint: [Create a Bancontact PayIn](https://mangopay.com/docs/endpoints/bancontact#create-bancontact-payin)
+    - New parameter `PaymentCategory` for:
+      - [Create a Card Validation](https://mangopay.com/docs/endpoints/card-validations#create-card-validation)
+      - [Create a Direct Card PayIn](https://mangopay.com/docs/endpoints/direct-card-payins#create-direct-card-payin)
+      - [Create a Preauthorization](https://mangopay.com/docs/endpoints/preauthorizations#create-preauthorization)
+  </Accordion>
+
+  <Accordion title="Version 3.27.0 - February 2024">
+    ### Added
+    
+    - New endpoint to look up metadata from BIN or Google Pay token
+    - [Get a card validation endpoint](https://mangopay.com/docs/endpoints/card-validations#view-card-validation)
+    - [Validate the format of user data endpoint](https://mangopay.com/docs/endpoints/user-data-format#validate-user-data-format)
+    - Constant class created for UserCategory parameter
+  </Accordion>
+</AccordionGroup>
+
+## 2023 Releases
+
+<AccordionGroup>
+  <Accordion title="Version 3.23.0 - September 2023">
+    ### Added
+    
+    - Instantly convert funds between 2 wallets of different currencies owned by the same user with the new SPOT FX endpoints
+  </Accordion>
+
+  <Accordion title="Version 3.22.0 - September 2023">
+    ### Added
+    
+    - Multibanco, Satispay, Blik, Klarna payment methods (private beta)
+    - Card validation endpoint (private beta)
+    - New parameter for Paypal: `ShippingPreference`
+    - Timeout configuration is now customizable (default: 30s)
+    
+    ### Updated
+    
+    - Google Pay integration improved (private beta)
+    
+    ### Fixed
+    
+    - MBWay & PayPal now using Web Execution Type
+  </Accordion>
+
+  <Accordion title="Version 3.19.0 - March 2023">
+    ### Added
+    
+    - Knowing when a dispute was closed is now possible with the new `ClosedDate` parameter for the Dispute object
+    - Updated endpoints: View a Dispute, List Disputes for a User, List Disputes for a Wallet, List all Disputes, List Disputes that need settling
+    
+    <Note>
+    The `ClosedDate` field only displays values for Disputes closed after this release. Otherwise, a null value is returned.
+    </Note>
+  </Accordion>
+
+  <Accordion title="Version 3.18.0 - January 2023">
+    ### Added
+    
+    - New legal entity type: `PARTNERSHIP` for the `LegalPersonType` parameter
+    - Updated user creation and update endpoints to support the new type
+    
+    <Warning>
+    Changing the LegalPersonType to `PARTNERSHIP` for an existing user will automatically result in:
+    - A KYC downgrade to Light (default) verification
+    - The REGISTRATION_PROOF document being flagged as OUT_OF_DATE
+    </Warning>
+  </Accordion>
+</AccordionGroup>
+
+## 2022 Releases
+
+<AccordionGroup>
+  <Accordion title="Version 3.17.0 - November 2022">
+    ### Added
+    
+    #### New 30-day preauthorization feature
+    
+    Preauthorizations can now hold funds for up to 30 days:
+    - The `ApiDeposits` class has been added with methods for creating, fetching and canceling a deposit
+    - The `CreateCardPreAuthorizedDepositPayIn()` method has been added to the ApiPayIns class
+  </Accordion>
+
+  <Accordion title="Version 3.15.0 - June 2022">
+    ### Added
+    
+    **Recurring: €0 deadlines for CIT**
+    
+    Setting free recurring payment deadlines is now possible for CIT (customer-initiated transactions) with the `FreeCycles` parameter.
+  </Accordion>
+
+  <Accordion title="Version 3.14.0 - May 2022">
+    ### Added
+    
+    #### UserCategory management
+    
+    Users can now be differentiated with the new `UserCategory` parameter:
+    - `Payer` – For users who only pay
+    - `Owner` – For users who receive funds (required to accept T&Cs)
+    
+    #### RecurringPayinRegistrationId in all PayIn GET calls
+    
+    Added missing `RecurringPayinRegistrationId` to all PayIn get calls.
+  </Accordion>
+
+  <Accordion title="Version 3.13.0 - May 2022">
+    ### Added
+    
+    - Terms and conditions acceptance can now be registered via the SDK with the new `TermsAndConditionsAccepted` parameter
+  </Accordion>
+</AccordionGroup>
+
+## 2021 Releases
+
+<AccordionGroup>
+  <Accordion title="Version 3.10.0 - November 2021">
+    ### Added
+    
+    New hooks for [Instant payouts](https://docs.mangopay.com/guide/instant-payment-payout):
+    - `INSTANT_PAYOUT_SUCCEEDED`
+    - `INSTANT_PAYOUT_FALLBACKED`
+  </Accordion>
+
+  <Accordion title="Version 3.6.0 - June 2021">
+    ### Added
+    
+    - **[Recurring payments](https://docs.mangopay.com/guide/recurring-payments)** feature
+    - Create a Recurring PayIn Registration object
+    - Initiate recurring payment flow with authenticated transaction (CIT)
+    - Continue recurring payment flow with non-authenticated transaction (MIT)
+    
+    <Note>
+    This feature requires Support team approval for production use.
+    </Note>
+  </Accordion>
+
+  <Accordion title="Version 3.5.0 - May 2021">
+    ### Added
+    
+    - **Instant payment** mode for payouts (25 seconds vs 48 hours)
+    - This feature must be authorized and activated by MANGOPAY
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+For the complete version history prior to 2021, please refer to the [CHANGELOG.md file](https://github.com/Mangopay/mangopay4-php-sdk/blob/master/CHANGELOG.md) in the GitHub repository.
+</Note>
+
+## Getting Help
+
+<CardGroup cols={2}>
+  <Card title="Report Issues" icon="bug" href="https://github.com/Mangopay/mangopay4-php-sdk/issues">
+    Found a bug or have a feature request? Report it on GitHub.
+  </Card>
+  <Card title="Migration Guide" icon="route" href="/resources/migration-guide">
+    Learn how to migrate between major versions.
+  </Card>
+</CardGroup>

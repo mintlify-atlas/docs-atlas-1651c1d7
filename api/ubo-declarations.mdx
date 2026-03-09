@@ -1,0 +1,479 @@
+---
+title: 'UBO Declarations'
+description: 'Manage Ultimate Beneficial Owner (UBO) declarations for legal entities'
+icon: 'users'
+---
+
+The `ApiUboDeclarations` class provides methods to create and manage UBO (Ultimate Beneficial Owner) declarations. UBO declarations are required for legal entity users to declare individuals who ultimately own or control the business.
+
+## Methods
+
+### Create
+
+Creates a new UBO declaration for a user (legal entity).
+
+```php
+public function Create($userId)
+```
+
+<ParamField name="userId" type="string" required>
+  The unique identifier of the legal entity user for whom to create the declaration
+</ParamField>
+
+<ResponseField name="return" type="\MangoPay\UboDeclaration">
+  The created UboDeclaration object
+</ResponseField>
+
+#### Example
+
+```php
+$api = new \MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$legalUserId = '12345678';
+$declaration = $api->UboDeclarations->Create($legalUserId);
+
+echo "Declaration ID: " . $declaration->Id . "\n";
+echo "Status: " . $declaration->Status . "\n";
+```
+
+---
+
+### GetAll
+
+Retrieves all UBO declarations for a specific user.
+
+```php
+public function GetAll(
+    $userId,
+    $pagination = null,
+    $sorting = null
+)
+```
+
+<ParamField name="userId" type="string" required>
+  The unique identifier of the user whose declarations to retrieve
+</ParamField>
+
+<ParamField name="pagination" type="\MangoPay\Pagination" optional>
+  Pagination object to control the number of results returned
+</ParamField>
+
+<ParamField name="sorting" type="\MangoPay\Sorting" optional>
+  Object to sort the results
+</ParamField>
+
+<ResponseField name="return" type="\MangoPay\UboDeclaration[]">
+  Array of UboDeclaration objects
+</ResponseField>
+
+#### Example
+
+```php
+$api = new \MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$legalUserId = '12345678';
+$declarations = $api->UboDeclarations->GetAll($legalUserId);
+
+foreach ($declarations as $declaration) {
+    echo "Declaration ID: " . $declaration->Id . "\n";
+    echo "Status: " . $declaration->Status . "\n";
+}
+```
+
+---
+
+### Get
+
+Retrieves a specific UBO declaration by user ID and declaration ID.
+
+```php
+public function Get($userId, $uboDeclarationId)
+```
+
+<ParamField name="userId" type="string" required>
+  The unique identifier of the user
+</ParamField>
+
+<ParamField name="uboDeclarationId" type="string" required>
+  The unique identifier of the UBO declaration
+</ParamField>
+
+<ResponseField name="return" type="\MangoPay\UboDeclaration">
+  The UboDeclaration object
+</ResponseField>
+
+#### Example
+
+```php
+$api = new \MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$declaration = $api->UboDeclarations->Get('12345678', '87654321');
+
+echo "Status: " . $declaration->Status . "\n";
+echo "Number of UBOs: " . count($declaration->Ubos) . "\n";
+```
+
+---
+
+### GetById
+
+Retrieves a UBO declaration directly by its ID (without requiring the user ID).
+
+```php
+public function GetById($uboDeclarationId)
+```
+
+<ParamField name="uboDeclarationId" type="string" required>
+  The unique identifier of the UBO declaration
+</ParamField>
+
+<ResponseField name="return" type="\MangoPay\UboDeclaration">
+  The UboDeclaration object
+</ResponseField>
+
+#### Example
+
+```php
+$api = new \MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$declaration = $api->UboDeclarations->GetById('87654321');
+
+echo "User ID: " . $declaration->UserId . "\n";
+echo "Status: " . $declaration->Status . "\n";
+```
+
+---
+
+### CreateUbo
+
+Creates a new UBO (Ultimate Beneficial Owner) within a declaration.
+
+```php
+public function CreateUbo(
+    $userId,
+    $uboDeclarationId,
+    $ubo
+)
+```
+
+<ParamField name="userId" type="string" required>
+  The unique identifier of the user
+</ParamField>
+
+<ParamField name="uboDeclarationId" type="string" required>
+  The unique identifier of the UBO declaration
+</ParamField>
+
+<ParamField name="ubo" type="\MangoPay\Ubo" required>
+  The Ubo object containing the beneficial owner's information
+</ParamField>
+
+<ResponseField name="return" type="\MangoPay\Ubo">
+  The created Ubo object
+</ResponseField>
+
+#### Example
+
+```php
+$api = new \MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$ubo = new \MangoPay\Ubo();
+$ubo->FirstName = 'John';
+$ubo->LastName = 'Doe';
+$ubo->Nationality = 'US';
+$ubo->Birthday = mktime(0, 0, 0, 1, 15, 1980);
+
+$address = new \MangoPay\Address();
+$address->AddressLine1 = '123 Main Street';
+$address->City = 'New York';
+$address->PostalCode = '10001';
+$address->Country = 'US';
+$ubo->Address = $address;
+
+$birthplace = new \MangoPay\Birthplace();
+$birthplace->City = 'Boston';
+$birthplace->Country = 'US';
+$ubo->Birthplace = $birthplace;
+
+$ubo->isActive = true;
+
+$createdUbo = $api->UboDeclarations->CreateUbo(
+    '12345678',
+    '87654321',
+    $ubo
+);
+
+echo "UBO ID: " . $createdUbo->Id . "\n";
+```
+
+---
+
+### UpdateUbo
+
+Updates an existing UBO within a declaration.
+
+```php
+public function UpdateUbo(
+    $userId,
+    $uboDeclarationId,
+    $ubo
+)
+```
+
+<ParamField name="userId" type="string" required>
+  The unique identifier of the user
+</ParamField>
+
+<ParamField name="uboDeclarationId" type="string" required>
+  The unique identifier of the UBO declaration
+</ParamField>
+
+<ParamField name="ubo" type="\MangoPay\Ubo" required>
+  The Ubo object with updated information (must include the Id)
+</ParamField>
+
+<ResponseField name="return" type="\MangoPay\Ubo">
+  The updated Ubo object
+</ResponseField>
+
+#### Example
+
+```php
+$api = new \MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$ubo = $api->UboDeclarations->GetUbo('12345678', '87654321', 'ubo123');
+$ubo->isActive = false;
+
+$updatedUbo = $api->UboDeclarations->UpdateUbo(
+    '12345678',
+    '87654321',
+    $ubo
+);
+
+echo "UBO status: " . ($updatedUbo->isActive ? 'Active' : 'Inactive') . "\n";
+```
+
+---
+
+### GetUbo
+
+Retrieves a specific UBO from a declaration.
+
+```php
+public function GetUbo(
+    $userId,
+    $uboDeclarationId,
+    $uboId
+)
+```
+
+<ParamField name="userId" type="string" required>
+  The unique identifier of the user
+</ParamField>
+
+<ParamField name="uboDeclarationId" type="string" required>
+  The unique identifier of the UBO declaration
+</ParamField>
+
+<ParamField name="uboId" type="string" required>
+  The unique identifier of the UBO
+</ParamField>
+
+<ResponseField name="return" type="\MangoPay\Ubo">
+  The Ubo object
+</ResponseField>
+
+#### Example
+
+```php
+$api = new \MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$ubo = $api->UboDeclarations->GetUbo('12345678', '87654321', 'ubo123');
+
+echo "Name: " . $ubo->FirstName . " " . $ubo->LastName . "\n";
+echo "Nationality: " . $ubo->Nationality . "\n";
+```
+
+---
+
+### SubmitForValidation
+
+Submits a UBO declaration for validation by Mangopay.
+
+```php
+public function SubmitForValidation(
+    $userId,
+    $uboDeclarationId
+)
+```
+
+<ParamField name="userId" type="string" required>
+  The unique identifier of the user
+</ParamField>
+
+<ParamField name="uboDeclarationId" type="string" required>
+  The unique identifier of the UBO declaration to submit
+</ParamField>
+
+<ResponseField name="return" type="\MangoPay\UboDeclaration">
+  The UboDeclaration object with status updated to `VALIDATION_ASKED`
+</ResponseField>
+
+#### Example
+
+```php
+$api = new \MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$declaration = $api->UboDeclarations->SubmitForValidation('12345678', '87654321');
+
+echo "Declaration submitted with status: " . $declaration->Status . "\n";
+```
+
+---
+
+### GetUboDeclarationById
+
+Retrieves a UBO declaration by its ID (alias for GetById).
+
+```php
+public function GetUboDeclarationById($uboDeclarationId)
+```
+
+<ParamField name="uboDeclarationId" type="string" required>
+  The unique identifier of the UBO declaration
+</ParamField>
+
+<ResponseField name="return" type="\MangoPay\UboDeclaration">
+  The UboDeclaration object
+</ResponseField>
+
+## UboDeclaration Object
+
+The `UboDeclaration` object represents a declaration of ultimate beneficial owners.
+
+<ResponseField name="Id" type="string">
+  The unique identifier of the declaration
+</ResponseField>
+
+<ResponseField name="UserId" type="string">
+  The unique identifier of the legal entity user
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  The current status of the declaration. See `\MangoPay\UboDeclarationStatus`:
+  - `CREATED` - Declaration created but not yet submitted
+  - `VALIDATION_ASKED` - Declaration submitted for validation
+  - `VALIDATED` - Declaration has been approved
+  - `REFUSED` - Declaration has been rejected
+  - `INCOMPLETE` - Declaration is missing information
+</ResponseField>
+
+<ResponseField name="ProcessedDate" type="int">
+  Unix timestamp of when the declaration was processed
+</ResponseField>
+
+<ResponseField name="Reason" type="string">
+  The reason why the declaration was refused or marked incomplete. See `\MangoPay\UboDeclarationRefusedOrIncompleteReasonType`
+</ResponseField>
+
+<ResponseField name="Message" type="string">
+  Additional explanation of why the declaration was refused or marked incomplete
+</ResponseField>
+
+<ResponseField name="Ubos" type="\MangoPay\Ubo[]">
+  Array of Ubo objects representing the beneficial owners declared
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of when the declaration was created
+</ResponseField>
+
+## Ubo Object
+
+The `Ubo` object represents an individual ultimate beneficial owner.
+
+<ResponseField name="Id" type="string">
+  The unique identifier of the UBO
+</ResponseField>
+
+<ResponseField name="FirstName" type="string">
+  The first name of the beneficial owner
+</ResponseField>
+
+<ResponseField name="LastName" type="string">
+  The last name of the beneficial owner
+</ResponseField>
+
+<ResponseField name="Address" type="\MangoPay\Address">
+  The address of the beneficial owner
+</ResponseField>
+
+<ResponseField name="Nationality" type="string">
+  The nationality of the beneficial owner (ISO 3166-1 alpha-2 format)
+</ResponseField>
+
+<ResponseField name="Birthday" type="int">
+  Unix timestamp of the beneficial owner's date of birth
+</ResponseField>
+
+<ResponseField name="Birthplace" type="\MangoPay\Birthplace">
+  The birthplace of the beneficial owner
+</ResponseField>
+
+<ResponseField name="isActive" type="bool">
+  Indicates whether this person is currently a UBO. Set to false if they are no longer a beneficial owner
+</ResponseField>
+
+## Workflow
+
+<Steps>
+  <Step title="Create declaration">
+    Call `Create()` with the legal entity user ID to create a new UBO declaration.
+  </Step>
+  
+  <Step title="Add UBOs">
+    Use `CreateUbo()` to add each beneficial owner to the declaration. You must add all individuals who own or control more than 25% of the business.
+  </Step>
+  
+  <Step title="Update if needed">
+    Use `UpdateUbo()` to modify UBO information or set `isActive` to false if they are no longer a beneficial owner.
+  </Step>
+  
+  <Step title="Submit for validation">
+    Call `SubmitForValidation()` when all UBOs have been added. The declaration status will change to `VALIDATION_ASKED`.
+  </Step>
+  
+  <Step title="Monitor status">
+    Use `Get()` or `GetById()` to check the declaration status. Mangopay will review and either validate or refuse the declaration.
+  </Step>
+</Steps>
+
+## Best Practices
+
+<Warning>
+  Ensure that the `uboDeclarationId` is not null or empty when calling `CreateUbo()`. The method will throw a `ResponseException` if the ID is missing.
+</Warning>
+
+<Tip>
+  Always retrieve the latest declaration using `Get()` before submitting for validation to ensure all UBOs are properly configured.
+</Tip>
+
+<Info>
+  If a declaration is refused or marked incomplete, check the `Reason` and `Message` fields to understand what needs to be corrected before resubmitting.
+</Info>

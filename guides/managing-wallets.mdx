@@ -1,0 +1,371 @@
+---
+title: 'Managing Wallets'
+description: 'Create and manage wallets to hold funds for your users'
+---
+
+## Overview
+
+Wallets are containers for funds in Mangopay. Each wallet:
+- Belongs to one or more users (owners)
+- Has a single currency
+- Tracks balance automatically
+- Maintains transaction history
+
+Users can have multiple wallets in different currencies.
+
+## Creating a Wallet
+
+<Steps>
+  <Step title="Initialize the API">
+    ```php
+    require_once 'vendor/autoload.php';
+    
+    $api = new MangoPay\MangoPayApi();
+    $api->Config->ClientId = 'your-client-id';
+    $api->Config->ClientPassword = 'your-client-password';
+    $api->Config->TemporaryFolder = '/tmp/';
+    ```
+  </Step>
+
+  <Step title="Create Wallet Object">
+    Create a new wallet with required properties:
+    
+    ```php
+    $wallet = new MangoPay\Wallet();
+    $wallet->Owners = [$userId]; // Array of user IDs
+    $wallet->Description = 'Main wallet';
+    $wallet->Currency = 'EUR';
+    ```
+  </Step>
+
+  <Step title="Submit to API">
+    Create the wallet via the API:
+    
+    ```php
+    try {
+        $createdWallet = $api->Wallets->Create($wallet);
+        echo "Wallet created with ID: " . $createdWallet->Id;
+        echo "Balance: " . $createdWallet->Balance->Amount / 100;
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        echo "Error: " . $e->GetMessage();
+    }
+    ```
+  </Step>
+</Steps>
+
+## Wallet Properties
+
+### Owners
+
+Wallets can have multiple owners:
+
+```php
+$wallet = new MangoPay\Wallet();
+$wallet->Owners = [$userId1, $userId2, $userId3];
+$wallet->Description = 'Shared wallet';
+$wallet->Currency = 'USD';
+
+$createdWallet = $api->Wallets->Create($wallet);
+```
+
+### Currency
+
+Each wallet operates in a single currency. Supported currencies include EUR, USD, GBP, and more.
+
+```php
+$wallet->Currency = 'GBP'; // British Pound
+```
+
+### Balance
+
+The balance is read-only and automatically updated by transactions:
+
+```php
+$wallet = $api->Wallets->Get($walletId);
+$balanceAmount = $wallet->Balance->Amount; // Amount in cents
+$balanceCurrency = $wallet->Balance->Currency;
+
+echo "Balance: " . ($balanceAmount / 100) . " " . $balanceCurrency;
+```
+
+## Retrieving Wallets
+
+### Get a Specific Wallet
+
+```php
+try {
+    $wallet = $api->Wallets->Get($walletId);
+    
+    echo "Wallet ID: " . $wallet->Id . "\n";
+    echo "Description: " . $wallet->Description . "\n";
+    echo "Balance: " . ($wallet->Balance->Amount / 100) . " " . $wallet->Currency;
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+### Get Wallet with SCA Context
+
+For Strong Customer Authentication:
+
+```php
+try {
+    $wallet = $api->Wallets->Get($walletId, 'USER_PRESENT');
+} catch (MangoPay\Libraries\ResponseException $e) {
+    if ($e->GetCode() === 403) {
+        // SCA required - redirect user to authentication
+        $errorDetails = $e->GetErrorDetails();
+        $redirectUrl = $errorDetails[0]->RedirectUrl;
+    }
+}
+```
+
+### Get User's Wallets
+
+Retrieve all wallets for a specific user:
+
+```php
+$pagination = new MangoPay\Pagination(1, 20);
+
+try {
+    $wallets = $api->Users->GetWallets($userId, $pagination);
+    
+    foreach ($wallets as $wallet) {
+        echo "Wallet: " . $wallet->Description . "\n";
+        echo "Balance: " . ($wallet->Balance->Amount / 100) . " ";
+        echo $wallet->Currency . "\n\n";
+    }
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Updating Wallets
+
+You can update the wallet description:
+
+```php
+try {
+    $wallet = $api->Wallets->Get($walletId);
+    $wallet->Description = 'Updated wallet description';
+    
+    $updatedWallet = $api->Wallets->Update($wallet);
+    echo "Wallet updated successfully";
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+<Warning>
+You cannot change the wallet's currency or owners after creation. The balance is read-only and updated automatically through transactions.
+</Warning>
+
+## Wallet Transactions
+
+### Get Wallet Transactions
+
+Retrieve all transactions for a wallet:
+
+```php
+$pagination = new MangoPay\Pagination(1, 50);
+$filter = new MangoPay\FilterTransactions();
+$filter->Type = 'PAYIN'; // Filter by type
+
+try {
+    $transactions = $api->Wallets->GetTransactions(
+        $walletId, 
+        $pagination, 
+        $filter
+    );
+    
+    foreach ($transactions as $transaction) {
+        echo "Transaction ID: " . $transaction->Id . "\n";
+        echo "Type: " . $transaction->Type . "\n";
+        echo "Amount: " . ($transaction->Amount / 100) . "\n";
+        echo "Status: " . $transaction->Status . "\n\n";
+    }
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+### Filter Transactions
+
+Apply filters to narrow down results:
+
+```php
+$filter = new MangoPay\FilterTransactions();
+$filter->BeforeDate = time();
+$filter->AfterDate = strtotime('-30 days');
+$filter->Type = 'PAYOUT';
+$filter->Status = 'SUCCEEDED';
+
+$transactions = $api->Wallets->GetTransactions(
+    $walletId, 
+    $pagination, 
+    $filter
+);
+```
+
+### Sort Transactions
+
+```php
+$sorting = new MangoPay\Sorting();
+$sorting->AddField('CreationDate', 'DESC');
+
+$transactions = $api->Wallets->GetTransactions(
+    $walletId, 
+    $pagination, 
+    null,
+    $sorting
+);
+```
+
+## Multi-Currency Wallets
+
+Users can have multiple wallets for different currencies:
+
+```php
+// Create EUR wallet
+$eurWallet = new MangoPay\Wallet();
+$eurWallet->Owners = [$userId];
+$eurWallet->Description = 'EUR Wallet';
+$eurWallet->Currency = 'EUR';
+$eurWallet = $api->Wallets->Create($eurWallet);
+
+// Create USD wallet
+$usdWallet = new MangoPay\Wallet();
+$usdWallet->Owners = [$userId];
+$usdWallet->Description = 'USD Wallet';
+$usdWallet->Currency = 'USD';
+$usdWallet = $api->Wallets->Create($usdWallet);
+
+// Create GBP wallet
+$gbpWallet = new MangoPay\Wallet();
+$gbpWallet->Owners = [$userId];
+$gbpWallet->Description = 'GBP Wallet';
+$gbpWallet->Currency = 'GBP';
+$gbpWallet = $api->Wallets->Create($gbpWallet);
+```
+
+## Using Idempotency
+
+Prevent duplicate wallet creation with idempotency keys:
+
+```php
+$wallet = new MangoPay\Wallet();
+$wallet->Owners = [$userId];
+$wallet->Description = 'Main wallet';
+$wallet->Currency = 'EUR';
+
+$idempotencyKey = 'wallet_' . $userId . '_' . time();
+
+try {
+    $createdWallet = $api->Wallets->Create($wallet, $idempotencyKey);
+    
+    // If you retry with the same key, you'll get the same wallet
+    $sameWallet = $api->Wallets->Create($wallet, $idempotencyKey);
+    
+    // Both will have the same ID
+    assert($createdWallet->Id === $sameWallet->Id);
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Common Patterns
+
+### Check if Wallet Has Sufficient Funds
+
+```php
+function hasSufficientFunds($api, $walletId, $requiredAmount) {
+    try {
+        $wallet = $api->Wallets->Get($walletId);
+        return $wallet->Balance->Amount >= $requiredAmount;
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        return false;
+    }
+}
+
+// Usage
+if (hasSufficientFunds($api, $walletId, 10000)) { // 100.00 EUR
+    echo "Sufficient funds available";
+}
+```
+
+### Get Wallet Balance
+
+```php
+function getWalletBalance($api, $walletId) {
+    try {
+        $wallet = $api->Wallets->Get($walletId);
+        return [
+            'amount' => $wallet->Balance->Amount / 100,
+            'currency' => $wallet->Balance->Currency
+        ];
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        return null;
+    }
+}
+
+$balance = getWalletBalance($api, $walletId);
+echo "Balance: {$balance['amount']} {$balance['currency']}";
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="One Wallet Per Currency" icon="coins">
+    Create separate wallets for each currency your users need.
+  </Card>
+  
+  <Card title="Descriptive Names" icon="tag">
+    Use clear descriptions to identify wallet purposes.
+  </Card>
+  
+  <Card title="Store Wallet IDs" icon="database">
+    Save wallet IDs in your database alongside user records.
+  </Card>
+  
+  <Card title="Check Balance First" icon="scale-balanced">
+    Always verify sufficient funds before initiating payouts.
+  </Card>
+</CardGroup>
+
+## Error Handling
+
+```php
+try {
+    $wallet = $api->Wallets->Create($newWallet);
+} catch (MangoPay\Libraries\ResponseException $e) {
+    $errorCode = $e->GetCode();
+    
+    switch ($errorCode) {
+        case 400:
+            echo "Invalid wallet data";
+            break;
+        case 401:
+            echo "Authentication failed";
+            break;
+        case 404:
+            echo "Resource not found";
+            break;
+        default:
+            echo "Error: " . $e->GetMessage();
+    }
+} catch (MangoPay\Libraries\Exception $e) {
+    echo "SDK Error: " . $e->GetMessage();
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Processing Pay-ins" icon="arrow-down" href="/guides/processing-payins">
+    Learn how to add funds to wallets
+  </Card>
+  
+  <Card title="Processing Payouts" icon="arrow-up" href="/guides/processing-payouts">
+    Withdraw funds from wallets to bank accounts
+  </Card>
+</CardGroup>

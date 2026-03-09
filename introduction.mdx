@@ -1,0 +1,96 @@
+---
+title: 'Introduction'
+description: 'Get started with the Mangopay PHP SDK for payment processing'
+---
+
+## Welcome to Mangopay PHP SDK
+
+The Mangopay PHP SDK is a client library that simplifies integration with the [Mangopay REST API](https://docs.mangopay.com/endpoints/v2.01). It provides a comprehensive set of tools for managing users, wallets, payments, transfers, and more.
+
+## What is Mangopay?
+
+Mangopay is a payment infrastructure platform that enables marketplaces and platforms to accept payments, manage user accounts, and facilitate transfers between users. The PHP SDK abstracts the complexity of direct API calls and provides an intuitive object-oriented interface.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="User Management" icon="users">
+    Create and manage natural and legal users with comprehensive KYC support
+  </Card>
+  <Card title="Payment Processing" icon="credit-card">
+    Accept payments via cards, bank transfers, PayPal, and more
+  </Card>
+  <Card title="Wallet Management" icon="wallet">
+    Create and manage user wallets for secure fund storage
+  </Card>
+  <Card title="Transfers & Payouts" icon="money-bill-transfer">
+    Facilitate transfers between users and payouts to bank accounts
+  </Card>
+</CardGroup>
+
+## Requirements
+
+To use the Mangopay PHP SDK, you need:
+
+- **PHP 5.6 or newer**
+- **cURL** (included and enabled in standard PHP distributions)
+- **OpenSSL** (included and enabled in standard PHP distributions)
+- **psr/log** v1.0 (automatically handled by Composer)
+
+<Note>
+  While Composer is not mandatory, it is **strongly recommended** for managing dependencies, particularly the PSR Log library.
+</Note>
+
+## API Version Compatibility
+
+<Info>
+  Since v2.1 of this SDK, you must use at least v2.01 of the Mangopay API. See the [API v2.01 overview](https://docs.mangopay.com/api-v2-01-overview/) for migration details.
+</Info>
+
+## Getting Your API Credentials
+
+Before you begin, you'll need Mangopay API credentials:
+
+<Steps>
+  <Step title="Choose Your Environment">
+    - **Sandbox**: Free testing environment for development
+    - **Production**: Live environment for real transactions
+  </Step>
+  <Step title="Register Your Account">
+    Visit the [Mangopay registration page](https://www.mangopay.com/start/) to create an account.
+    
+    <Warning>
+      Production account validation involves several steps. Start the process well before your intended go-live date.
+    </Warning>
+  </Step>
+  <Step title="Retrieve Your Credentials">
+    After registration, you'll receive:
+    - **Client ID**: Your unique identifier
+    - **API Key**: Your authentication password (also called Client Password)
+  </Step>
+</Steps>
+
+## What's Next?
+
+Now that you understand the basics, proceed to installation and configuration:
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install the SDK using Composer or manual download
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration">
+    Configure the SDK with your API credentials
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Build your first integration with a complete example
+  </Card>
+  <Card title="API Reference" icon="book" href="/api-reference">
+    Explore all available API methods and resources
+  </Card>
+</CardGroup>
+
+## Support and Resources
+
+- **Report bugs**: [GitHub Issues](https://github.com/Mangopay/mangopay2-php-sdk/issues)
+- **API Documentation**: [Mangopay API Docs](https://docs.mangopay.com)
+- **License**: MIT License

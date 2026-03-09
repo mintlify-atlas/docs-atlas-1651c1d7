@@ -1,0 +1,381 @@
+---
+title: 'PayIns'
+description: 'Create and manage pay-in transactions in Mangopay'
+icon: 'arrow-down-to-bracket'
+---
+
+The `ApiPayIns` class provides methods to create and manage pay-in transactions, which represent funds being paid into a wallet.
+
+## Methods
+
+### Create
+
+Create a new pay-in object.
+
+```php
+public function Create($payIn, $idempotencyKey = null)
+```
+
+<ParamField path="payIn" type="\MangoPay\PayIn" required>
+  The PayIn object to create. Must have `PaymentDetails` and `ExecutionDetails` set.
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key for safe retries
+</ParamField>
+
+**Returns:** `\MangoPay\PayIn` - The created PayIn object
+
+**Example:**
+
+```php
+$payIn = new \MangoPay\PayIn();
+$payIn->AuthorId = $userId;
+$payIn->CreditedWalletId = $walletId;
+$payIn->DebitedFunds = new \MangoPay\Money();
+$payIn->DebitedFunds->Currency = 'EUR';
+$payIn->DebitedFunds->Amount = 1000;
+$payIn->Fees = new \MangoPay\Money();
+$payIn->Fees->Currency = 'EUR';
+$payIn->Fees->Amount = 10;
+
+// Set payment and execution details based on payment method
+$payIn->PaymentType = 'CARD';
+$payIn->ExecutionType = 'DIRECT';
+
+$result = $api->PayIns->Create($payIn);
+```
+
+### Get
+
+Get a pay-in object by ID.
+
+```php
+public function Get($payInId)
+```
+
+<ParamField path="payInId" type="string" required>
+  The unique identifier of the pay-in
+</ParamField>
+
+**Returns:** `\MangoPay\PayIn` - The PayIn object
+
+**Example:**
+
+```php
+$payIn = $api->PayIns->Get('payin_123456');
+```
+
+### CreateRefund
+
+Create a refund for a pay-in transaction.
+
+```php
+public function CreateRefund($payInId, $refund, $idempotencyKey = null)
+```
+
+<ParamField path="payInId" type="string" required>
+  The ID of the pay-in to refund
+</ParamField>
+
+<ParamField path="refund" type="\MangoPay\Refund" required>
+  The Refund object to create
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key for safe retries
+</ParamField>
+
+**Returns:** `\MangoPay\Refund` - The created Refund object
+
+**Example:**
+
+```php
+$refund = new \MangoPay\Refund();
+$refund->AuthorId = $userId;
+$refund->DebitedFunds = new \MangoPay\Money();
+$refund->DebitedFunds->Currency = 'EUR';
+$refund->DebitedFunds->Amount = 500;
+$refund->Fees = new \MangoPay\Money();
+$refund->Fees->Currency = 'EUR';
+$refund->Fees->Amount = 5;
+
+$result = $api->PayIns->CreateRefund('payin_123456', $refund);
+```
+
+### GetRefunds
+
+Retrieve a list of refunds for a pay-in.
+
+```php
+public function GetRefunds($payInId, & $pagination = null, $filter = null, $sorting = null)
+```
+
+<ParamField path="payInId" type="string" required>
+  The ID of the pay-in
+</ParamField>
+
+<ParamField path="pagination" type="\MangoPay\Pagination">
+  Pagination object (passed by reference)
+</ParamField>
+
+<ParamField path="filter" type="\MangoPay\FilterRefunds">
+  Filtering options
+</ParamField>
+
+<ParamField path="sorting" type="\MangoPay\Sorting">
+  Sorting options
+</ParamField>
+
+**Returns:** `\MangoPay\Refund[]` - Array of Refund objects
+
+**Example:**
+
+```php
+$pagination = new \MangoPay\Pagination();
+$refunds = $api->PayIns->GetRefunds('payin_123456', $pagination);
+```
+
+### GetExtendedCardView
+
+Retrieve detailed card information for a web payment.
+
+```php
+public function GetExtendedCardView($payInId)
+```
+
+<ParamField path="payInId" type="string" required>
+  The ID of the pay-in
+</ParamField>
+
+**Returns:** `\MangoPay\PayInWebExtendedView` - Extended card details
+
+**Example:**
+
+```php
+$cardDetails = $api->PayIns->GetExtendedCardView('payin_123456');
+```
+
+### CreatePayPal
+
+Create a PayPal web pay-in.
+
+```php
+public function CreatePayPal($payIn, $idempotencyKey = null)
+```
+
+<ParamField path="payIn" type="\MangoPay\PayIn" required>
+  PayIn object configured for PayPal
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key
+</ParamField>
+
+**Returns:** `\MangoPay\PayIn`
+
+**Example:**
+
+```php
+$payIn = new \MangoPay\PayIn();
+$payIn->PaymentType = 'PAYPAL';
+// Configure PayPal-specific details...
+$result = $api->PayIns->CreatePayPal($payIn);
+```
+
+### CreateGooglePay
+
+Create a Google Pay direct pay-in.
+
+```php
+public function CreateGooglePay($payIn, $idempotencyKey = null)
+```
+
+<ParamField path="payIn" type="\MangoPay\PayIn" required>
+  PayIn object configured for Google Pay
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key
+</ParamField>
+
+**Returns:** `\MangoPay\PayIn`
+
+**Example:**
+
+```php
+$payIn = new \MangoPay\PayIn();
+$payIn->PaymentType = 'GOOGLEPAY';
+// Configure Google Pay-specific details...
+$result = $api->PayIns->CreateGooglePay($payIn);
+```
+
+### CreateRecurringRegistration
+
+Create a recurring payment registration.
+
+```php
+public function CreateRecurringRegistration($recurringRegistration, $idempotencyKey = null)
+```
+
+<ParamField path="recurringRegistration" type="\MangoPay\PayInRecurringRegistration" required>
+  The recurring registration object
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key
+</ParamField>
+
+**Returns:** `\MangoPay\PayInRecurringRegistrationRequestResponse`
+
+### GetRecurringRegistration
+
+Get a recurring payment registration.
+
+```php
+public function GetRecurringRegistration($recurringRegistrationId, $idempotencyKey = null)
+```
+
+<ParamField path="recurringRegistrationId" type="string" required>
+  The ID of the recurring registration
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key
+</ParamField>
+
+**Returns:** `\MangoPay\PayInRecurringRegistrationGet`
+
+### UpdateRecurringRegistration
+
+Update a recurring payment registration.
+
+```php
+public function UpdateRecurringRegistration($recurringUpdate, $idempotencyKey = null)
+```
+
+<ParamField path="recurringUpdate" type="PayInRecurringRegistrationUpdate" required>
+  The update object with registration ID
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key
+</ParamField>
+
+**Returns:** `\MangoPay\PayInRecurringRegistrationGet`
+
+### GetPaymentMethodMetadata
+
+Look up metadata from BIN or Google Pay token.
+
+```php
+public function GetPaymentMethodMetadata(PaymentMethodMetadata $paymentMethodMetadata, $idempotencyKey = null)
+```
+
+<ParamField path="paymentMethodMetadata" type="\MangoPay\PaymentMethodMetadata" required>
+  Payment method metadata object
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key
+</ParamField>
+
+**Returns:** `\MangoPay\PaymentMethodMetadata`
+
+## PayIn Entity
+
+The `PayIn` entity represents a pay-in transaction.
+
+### Properties
+
+<ResponseField name="Id" type="string">
+  The unique identifier of the pay-in
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of when the pay-in was created
+</ResponseField>
+
+<ResponseField name="Tag" type="string">
+  Custom data for your use
+</ResponseField>
+
+<ResponseField name="AuthorId" type="string" required>
+  The user ID of the author
+</ResponseField>
+
+<ResponseField name="CreditedUserId" type="string">
+  The user ID whose wallet is credited
+</ResponseField>
+
+<ResponseField name="CreditedWalletId" type="string" required>
+  The ID of the wallet to credit
+</ResponseField>
+
+<ResponseField name="DebitedFunds" type="\MangoPay\Money" required>
+  The amount debited from the payment source
+</ResponseField>
+
+<ResponseField name="CreditedFunds" type="\MangoPay\Money">
+  The amount credited to the wallet (DebitedFunds - Fees)
+</ResponseField>
+
+<ResponseField name="Fees" type="\MangoPay\Money" required>
+  The fees taken from the transaction
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  The status of the transaction: `CREATED`, `SUCCEEDED`, `FAILED`
+</ResponseField>
+
+<ResponseField name="ResultCode" type="string">
+  The result code of the transaction
+</ResponseField>
+
+<ResponseField name="ResultMessage" type="string">
+  The result message explaining the result code
+</ResponseField>
+
+<ResponseField name="ExecutionDate" type="int">
+  Unix timestamp of when the transaction was executed
+</ResponseField>
+
+<ResponseField name="Type" type="string">
+  The transaction type: `PAYIN`
+</ResponseField>
+
+<ResponseField name="Nature" type="string">
+  The transaction nature: `REGULAR`, `REFUND`, `REPUDIATION`
+</ResponseField>
+
+<ResponseField name="PaymentType" type="string" required>
+  The payment type: `CARD`, `BANK_WIRE`, `DIRECT_DEBIT`, `PAYPAL`, `PAYCONIQ`, `GOOGLEPAY`, etc.
+</ResponseField>
+
+<ResponseField name="PaymentDetails" type="object" required>
+  Payment-specific details object (type depends on PaymentType)
+</ResponseField>
+
+<ResponseField name="ExecutionType" type="string" required>
+  How the pay-in is executed: `WEB`, `TOKEN`, `DIRECT`, `PREAUTHORIZED`, `RECURRING_ORDER_EXECUTION`
+</ResponseField>
+
+<ResponseField name="ExecutionDetails" type="object" required>
+  Execution-specific details object (type depends on ExecutionType)
+</ResponseField>
+
+<ResponseField name="RecurringPayinRegistrationId" type="string">
+  The ID of the recurring payment registration
+</ResponseField>
+
+<ResponseField name="PaymentCategory" type="string">
+  The payment category: `ECommerce` (default), `TelephoneOrder`
+</ResponseField>
+
+<ResponseField name="ProfilingAttemptReference" type="string">
+  Reference for fraud prevention profiling session
+</ResponseField>
+
+<ResponseField name="AuthenticationResult" type="\MangoPay\AuthenticationResult">
+  3DS authentication result for card transactions
+</ResponseField>

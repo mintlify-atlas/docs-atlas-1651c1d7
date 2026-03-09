@@ -1,0 +1,179 @@
+---
+title: 'Banking Aliases'
+description: 'Manage banking aliases for wallets'
+---
+
+## Overview
+
+The Banking Aliases API allows you to create and manage IBAN banking aliases for wallets. Banking aliases enable your users to receive funds on their wallet via bank wire, making it easier to fund wallets without going through traditional payment flows.
+
+Currently, only IBAN banking aliases are supported, which can be used for COLLECTION or USER_OWNED purposes.
+
+## Methods
+
+### Get
+
+Retrieve a banking alias by its ID.
+
+```php
+public function Get($bankingAliasId)
+```
+
+<ParamField path="bankingAliasId" type="string" required>
+  The unique identifier of the banking alias
+</ParamField>
+
+**Returns:** `BankingAlias` - The banking alias object
+
+**Example:**
+
+```php
+$api = new MangoPay\MangoPayApi();
+$bankingAlias = $api->BankingAliases->Get('bankalias_123456');
+```
+
+### Create
+
+Create a new banking alias for a wallet.
+
+```php
+public function Create($bankingAlias)
+```
+
+<ParamField path="bankingAlias" type="BankingAliasIBAN" required>
+  The banking alias object to create. Currently only `BankingAliasIBAN` is supported.
+</ParamField>
+
+**Returns:** `BankingAliasIBAN` - The created banking alias object
+
+**Throws:** `Libraries\Exception` - If the entity class is not supported
+
+**Example:**
+
+```php
+$api = new MangoPay\MangoPayApi();
+
+$bankingAlias = new MangoPay\BankingAliasIBAN();
+$bankingAlias->WalletId = 'wallet_123456';
+$bankingAlias->OwnerName = 'John Doe';
+$bankingAlias->Tag = 'Custom tag';
+$bankingAlias->VirtualAccountPurpose = 'COLLECTION';
+
+$createdAlias = $api->BankingAliases->Create($bankingAlias);
+```
+
+### Update
+
+Update an existing banking alias.
+
+```php
+public function Update($bankingAlias)
+```
+
+<ParamField path="bankingAlias" type="BankingAlias" required>
+  The banking alias object with updated properties. Must include the banking alias ID.
+</ParamField>
+
+**Returns:** `BankingAlias` - The updated banking alias object
+
+**Example:**
+
+```php
+$bankingAlias = $api->BankingAliases->Get('bankalias_123456');
+$bankingAlias->Active = false;
+$updatedAlias = $api->BankingAliases->Update($bankingAlias);
+```
+
+### GetAll
+
+Retrieve all banking aliases for a specific wallet.
+
+```php
+public function GetAll($walletId, & $pagination = null, $sorting = null)
+```
+
+<ParamField path="walletId" type="string" required>
+  The wallet identifier
+</ParamField>
+
+<ParamField path="pagination" type="Pagination">
+  Pagination object (passed by reference, updated with total count)
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting configuration object
+</ParamField>
+
+**Returns:** `BankingAlias[]` - Array of banking alias objects
+
+**Example:**
+
+```php
+$pagination = new MangoPay\Pagination(1, 10);
+$bankingAliases = $api->BankingAliases->GetAll('wallet_123456', $pagination);
+
+foreach ($bankingAliases as $alias) {
+    echo "IBAN: " . $alias->IBAN . "\n";
+}
+```
+
+## BankingAlias Entity
+
+The `BankingAlias` entity represents a banking alias with the following properties:
+
+<ResponseField name="Id" type="string">
+  The unique identifier of the banking alias
+</ResponseField>
+
+<ResponseField name="Tag" type="string">
+  Custom data that you can add to this item
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of when the banking alias was created
+</ResponseField>
+
+<ResponseField name="CreditedUserId" type="string">
+  The user ID who was credited
+</ResponseField>
+
+<ResponseField name="WalletId" type="string">
+  The ID of the wallet this alias is attached to
+</ResponseField>
+
+<ResponseField name="Type" type="string">
+  The type of banking alias. Currently supports: `IBAN`, `GB`
+</ResponseField>
+
+<ResponseField name="OwnerName" type="string">
+  The name of the owner of the bank account
+</ResponseField>
+
+<ResponseField name="Active" type="bool">
+  Whether the banking alias is active or not
+</ResponseField>
+
+<ResponseField name="VirtualAccountPurpose" type="string">
+  The type of the virtual account. Allowed values: `COLLECTION`, `USER_OWNED`
+</ResponseField>
+
+## BankingAliasIBAN Entity
+
+Extends `BankingAlias` with IBAN-specific properties:
+
+<ResponseField name="IBAN" type="string">
+  The International Bank Account Number
+</ResponseField>
+
+<ResponseField name="BIC" type="string">
+  The Bank Identifier Code
+</ResponseField>
+
+<ResponseField name="Country" type="string">
+  The country of the IBAN (ISO 3166-1 alpha-2 format)
+</ResponseField>
+
+## Related Resources
+
+- [Wallets](/api/wallets)
+- [Virtual Accounts](/api/virtual-accounts)

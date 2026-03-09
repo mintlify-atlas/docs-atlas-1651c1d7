@@ -1,0 +1,190 @@
+---
+title: 'KYC Documents'
+description: 'Manage KYC (Know Your Customer) documents for user verification'
+icon: 'file-certificate'
+---
+
+The `ApiKycDocuments` class provides methods to retrieve and manage KYC documents submitted by users for identity verification purposes.
+
+## Methods
+
+### GetAll
+
+Retrieves all KYC documents with optional pagination, sorting, and filtering.
+
+```php
+public function GetAll(
+    & $pagination = null,
+    $sorting = null,
+    $filter = null
+)
+```
+
+<ParamField name="pagination" type="\MangoPay\Pagination" optional>
+  Pagination object passed by reference to track pagination state
+</ParamField>
+
+<ParamField name="sorting" type="\MangoPay\Sorting" optional>
+  Object to sort the results
+</ParamField>
+
+<ParamField name="filter" type="\MangoPay\FilterKycDocuments" optional>
+  Object to filter KYC documents by specific criteria
+</ParamField>
+
+<ResponseField name="return" type="\MangoPay\KycDocument[]">
+  Array of KycDocument objects returned from the API
+</ResponseField>
+
+#### Example
+
+```php
+$api = new \MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$pagination = new \MangoPay\Pagination(1, 100);
+$sorting = new \MangoPay\Sorting();
+$sorting->AddField('CreationDate', 'DESC');
+
+$filter = new \MangoPay\FilterKycDocuments();
+$filter->Status = \MangoPay\KycDocumentStatus::ValidationAsked;
+
+$documents = $api->KycDocuments->GetAll($pagination, $sorting, $filter);
+
+foreach ($documents as $document) {
+    echo "Document ID: " . $document->Id . "\n";
+    echo "Type: " . $document->Type . "\n";
+    echo "Status: " . $document->Status . "\n";
+}
+```
+
+---
+
+### Get
+
+Retrieves a specific KYC document by its identifier.
+
+```php
+public function Get($kycDocumentId)
+```
+
+<ParamField name="kycDocumentId" type="string" required>
+  The unique identifier of the KYC document
+</ParamField>
+
+<ResponseField name="return" type="\MangoPay\KycDocument">
+  The KycDocument object returned from the API
+</ResponseField>
+
+#### Example
+
+```php
+$api = new \MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$documentId = '12345678';
+$document = $api->KycDocuments->Get($documentId);
+
+echo "Document Type: " . $document->Type . "\n";
+echo "Status: " . $document->Status . "\n";
+echo "User ID: " . $document->UserId . "\n";
+
+if ($document->Status === \MangoPay\KycDocumentStatus::Refused) {
+    echo "Refused Reason: " . $document->RefusedReasonMessage . "\n";
+}
+```
+
+---
+
+### CreateKycDocumentConsult
+
+Creates temporary URLs where each page of a KYC document can be viewed.
+
+```php
+public function CreateKycDocumentConsult(
+    $kycDocumentId,
+    & $pagination = null
+)
+```
+
+<ParamField name="kycDocumentId" type="string" required>
+  The unique identifier of the KYC document whose pages to view
+</ParamField>
+
+<ParamField name="pagination" type="\MangoPay\Pagination" optional>
+  Pagination object passed by reference to track pagination state
+</ParamField>
+
+<ResponseField name="return" type="\MangoPay\DocumentPageConsult[]">
+  Array of DocumentPageConsult objects containing temporary URLs for viewing each page of the document
+</ResponseField>
+
+#### Example
+
+```php
+$api = new \MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$documentId = '12345678';
+$consults = $api->KycDocuments->CreateKycDocumentConsult($documentId);
+
+foreach ($consults as $index => $consult) {
+    echo "Page " . ($index + 1) . " URL: " . $consult->Url . "\n";
+    echo "Expires at: " . date('Y-m-d H:i:s', $consult->ExpirationDate / 1000) . "\n";
+}
+```
+
+## KycDocument Object
+
+The `KycDocument` object represents a KYC document in the system.
+
+<ResponseField name="Id" type="string">
+  The unique identifier of the document
+</ResponseField>
+
+<ResponseField name="Type" type="string">
+  The type of KYC document. See `\MangoPay\KycDocumentType` for available values
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  The current status of the document. See `\MangoPay\KycDocumentStatus` for available values:
+  - `CREATED` - Document has been created
+  - `VALIDATION_ASKED` - Document submitted for validation
+  - `VALIDATED` - Document has been approved
+  - `REFUSED` - Document has been rejected
+</ResponseField>
+
+<ResponseField name="UserId" type="string">
+  The unique identifier of the user who submitted the document
+</ResponseField>
+
+<ResponseField name="RefusedReasonType" type="string">
+  The type of reason why the document was refused (if applicable)
+</ResponseField>
+
+<ResponseField name="RefusedReasonMessage" type="string">
+  Detailed message explaining why the document was refused
+</ResponseField>
+
+<ResponseField name="ProcessedDate" type="int">
+  Unix timestamp of when the document was processed
+</ResponseField>
+
+<ResponseField name="Flags" type="array">
+  Additional information regarding why the document has been rejected
+</ResponseField>
+
+## DocumentPageConsult Object
+
+The `DocumentPageConsult` object contains temporary viewing information for a document page.
+
+<ResponseField name="Url" type="string">
+  Temporary URL where the document page can be viewed
+</ResponseField>
+
+<ResponseField name="ExpirationDate" type="int">
+  Unix timestamp (in milliseconds) when the temporary URL will expire
+</ResponseField>

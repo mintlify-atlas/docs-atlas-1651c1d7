@@ -1,0 +1,763 @@
+---
+title: Troubleshooting
+description: Common issues and solutions for the Mangopay PHP SDK
+---
+
+This guide covers common issues you might encounter when using the Mangopay PHP SDK and how to resolve them.
+
+## Authentication Issues
+
+### OAuth Token File Problems
+
+After updating the SDK, you may experience authentication failures due to outdated temporary token files.
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - 401 Unauthorized errors
+    - "Invalid token" messages
+    - Authentication failures after SDK update
+  </Accordion>
+  
+  <Accordion title="Solution">
+    Delete your temporary token file to force regeneration:
+    
+    ```bash
+    rm -rf /path/to/temporary/folder/*
+    ```
+    
+    The SDK will automatically regenerate the token on the next API call.
+    
+    **Important:** Use different temporary folders for sandbox and production environments:
+    
+    ```php
+    // Sandbox
+    $api->Config->TemporaryFolder = '/tmp/mangopay/sandbox/';
+    
+    // Production
+    $api->Config->TemporaryFolder = '/tmp/mangopay/production/';
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Invalid Credentials
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - 401 Unauthorized on all requests
+    - "Authentication credentials not recognized" error
+  </Accordion>
+  
+  <Accordion title="Solution">
+    Verify your credentials are correct:
+    
+    ```php
+    $api->Config->ClientId = 'your-client-id'; // Check this
+    $api->Config->ClientPassword = 'your-api-key'; // Check this
+    ```
+    
+    **Common mistakes:**
+    - Using production credentials in sandbox (or vice versa)
+    - Trailing/leading whitespace in credentials
+    - Using Client Secret instead of API Key
+    - Expired API keys
+    
+    **How to verify:**
+    1. Log into your [Mangopay Dashboard](https://dashboard.mangopay.com)
+    2. Navigate to API & Reports > API Keys
+    3. Compare with your code
+  </Accordion>
+</AccordionGroup>
+
+### Wrong Environment
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - Resources not found
+    - Different data than expected
+    - Authentication works but operations fail
+  </Accordion>
+  
+  <Accordion title="Solution">
+    Ensure you're using the correct base URL:
+    
+    ```php
+    // Sandbox (for testing)
+    $api->Config->BaseUrl = 'https://api.sandbox.mangopay.com';
+    
+    // Production (for live transactions)
+    $api->Config->BaseUrl = 'https://api.mangopay.com';
+    ```
+    
+    <Warning>
+    Never use production credentials in sandbox or sandbox credentials in production!
+    </Warning>
+  </Accordion>
+</AccordionGroup>
+
+## SSL/TLS Issues
+
+### Certificate Verification Failures
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - cURL error 60: SSL certificate problem
+    - "unable to get local issuer certificate"
+  </Accordion>
+  
+  <Accordion title="Solution">
+    Update your CA certificate bundle:
+    
+    1. Download the latest CA bundle from [curl.se](https://curl.se/docs/caextract.html)
+    2. Save it to a secure location
+    3. Configure the SDK:
+    
+    ```php
+    $api->Config->CertificatesFilePath = '/path/to/cacert.pem';
+    ```
+    
+    **For development only** (not recommended for production):
+    
+    If you need to disable SSL verification temporarily:
+    
+    ```php
+    // WARNING: Do not use in production!
+    $api->Config->CertificatesFilePath = '';
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### TLS Version Issues
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - Connection errors
+    - "unsupported protocol" errors
+  </Accordion>
+  
+  <Accordion title="Solution">
+    Mangopay requires TLS 1.2 or higher. Ensure your PHP installation supports it:
+    
+    ```php
+    // Check OpenSSL version
+    echo OPENSSL_VERSION_TEXT;
+    // Should be OpenSSL 1.0.1 or higher
+    
+    // Check cURL SSL version
+    $version = curl_version();
+    echo $version['ssl_version'];
+    ```
+    
+    If using an older version, upgrade OpenSSL and recompile PHP with the latest version.
+  </Accordion>
+</AccordionGroup>
+
+## Timeout Issues
+
+### Request Timeouts
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - cURL error 28: Operation timed out
+    - Requests fail after 30 seconds
+  </Accordion>
+  
+  <Accordion title="Solution">
+    Increase timeout values:
+    
+    ```php
+    // Response timeout (default: 30 seconds)
+    $api->Config->CurlResponseTimeout = 60;
+    
+    // Connection timeout (default: 80 seconds)
+    $api->Config->CurlConnectionTimeout = 120;
+    ```
+    
+    <Note>
+    Some operations like KYC document uploads may require longer timeouts.
+    </Note>
+  </Accordion>
+</AccordionGroup>
+
+### Script Execution Timeout
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - PHP Fatal error: Maximum execution time exceeded
+  </Accordion>
+  
+  <Accordion title="Solution">
+    Increase PHP's max execution time:
+    
+    ```php
+    set_time_limit(300); // 5 minutes
+    ```
+    
+    Or in php.ini:
+    
+    ```ini
+    max_execution_time = 300
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Type Errors and Object Issues
+
+### Money Object Errors
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - "Expected Money object, got integer"
+    - Type mismatch errors with amounts
+  </Accordion>
+  
+  <Accordion title="Solution">
+    Always use Money objects for amounts:
+    
+    ```php
+    // Wrong
+    $payIn->DebitedFunds = 1000;
+    
+    // Correct
+    use MangoPay\Money;
+    
+    $payIn->DebitedFunds = new Money();
+    $payIn->DebitedFunds->Currency = 'EUR';
+    $payIn->DebitedFunds->Amount = 1000;
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Address Object Errors
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - "Address required" validation errors
+    - Missing address fields
+  </Accordion>
+  
+  <Accordion title="Solution">
+    Ensure all required Address fields are set:
+    
+    ```php
+    use MangoPay\Address;
+    
+    $address = new Address();
+    $address->AddressLine1 = '1 London Road'; // Required
+    $address->City = 'London';                // Required
+    $address->PostalCode = 'SW1A 1AA';        // Required
+    $address->Country = 'GB';                 // Required (ISO 3166-1 alpha-2)
+    $address->Region = 'Greater London';      // Optional
+    $address->AddressLine2 = 'Apt 4';         // Optional
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Null Reference Errors
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - "Trying to get property of non-object"
+    - Null pointer exceptions
+  </Accordion>
+  
+  <Accordion title="Solution">
+    Always check for null before accessing nested properties:
+    
+    ```php
+    // Wrong
+    $redirectUrl = $user->PendingUserAction->RedirectUrl;
+    
+    // Correct
+    if ($user->PendingUserAction !== null) {
+        $redirectUrl = $user->PendingUserAction->RedirectUrl;
+        // Redirect user for SCA
+    }
+    
+    // Even safer
+    $redirectUrl = $user->PendingUserAction->RedirectUrl ?? null;
+    if ($redirectUrl !== null) {
+        // Handle redirect
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## API Response Errors
+
+### Invalid Field Errors
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - "One or several required parameters are missing or incorrect"
+    - Field-specific validation errors
+  </Accordion>
+  
+  <Accordion title="Solution">
+    Check the error details for specific field issues:
+    
+    ```php
+    use MangoPay\Libraries\ResponseException;
+    
+    try {
+        $user = $api->Users->Create($newUser);
+    } catch (ResponseException $e) {
+        $errorDetails = $e->GetErrorDetails();
+        
+        if ($errorDetails && isset($errorDetails->Errors)) {
+            foreach ($errorDetails->Errors as $field => $message) {
+                echo "Field '{$field}': {$message}\n";
+            }
+        }
+    }
+    ```
+    
+    **Common field issues:**
+    - Invalid country codes (must be ISO 3166-1 alpha-2)
+    - Invalid currency codes (must be ISO 4217)
+    - Email format validation
+    - Birthday must be Unix timestamp
+    - Phone numbers must include country code
+  </Accordion>
+</AccordionGroup>
+
+### Resource Not Found
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - 404 Not Found errors
+    - "Resource does not exist" messages
+  </Accordion>
+  
+  <Accordion title="Solution">
+    Common causes:
+    
+    1. **Wrong environment**: Resource exists in sandbox but not in production (or vice versa)
+    2. **Incorrect ID**: Double-check the resource ID
+    3. **Deleted resource**: The resource may have been deleted
+    
+    ```php
+    try {
+        $user = $api->Users->Get($userId);
+    } catch (ResponseException $e) {
+        if ($e->getCode() === 404) {
+            echo "User not found. Check ID and environment.\n";
+        }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Rate Limiting Errors
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - 429 Too Many Requests
+    - "Rate limit exceeded" errors
+  </Accordion>
+  
+  <Accordion title="Solution">
+    Implement exponential backoff and rate limit monitoring:
+    
+    ```php
+    use MangoPay\Libraries\ResponseException;
+    
+    function makeApiCallWithRetry($callable, $maxRetries = 3) {
+        $retries = 0;
+        
+        while ($retries < $maxRetries) {
+            try {
+                return $callable();
+            } catch (ResponseException $e) {
+                if ($e->getCode() === 429) {
+                    $retries++;
+                    $waitTime = pow(2, $retries); // Exponential backoff
+                    sleep($waitTime);
+                } else {
+                    throw $e;
+                }
+            }
+        }
+        
+        throw new Exception("Max retries exceeded");
+    }
+    
+    // Usage
+    $user = makeApiCallWithRetry(function() use ($api, $userId) {
+        return $api->Users->Get($userId);
+    });
+    
+    // Check rate limits
+    $rateLimits = $api->RateLimits;
+    if ($rateLimits[0]->CallsRemaining < 10) {
+        // Slow down requests
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## SCA (Strong Customer Authentication) Issues
+
+### Missing SCA Redirect
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - User not redirected for authentication
+    - SCA required but no redirect URL
+  </Accordion>
+  
+  <Accordion title="Solution">
+    Check for SCA requirement and handle redirect:
+    
+    ```php
+    try {
+        $payIn = $api->PayIns->CreateCardDirect($payIn);
+        
+        if ($payIn->Status === 'CREATED') {
+            // Check for 3DS redirect
+            if (isset($payIn->ExecutionDetails->SecureModeRedirectURL)) {
+                $redirectUrl = $payIn->ExecutionDetails->SecureModeRedirectURL;
+                header("Location: {$redirectUrl}");
+                exit;
+            }
+        }
+    } catch (\MangoPay\Libraries\ResponseException $e) {
+        if ($e->getCode() === 401) {
+            $errorDetails = $e->GetErrorDetails();
+            if (isset($errorDetails->Data['RedirectUrl'])) {
+                $redirectUrl = $errorDetails->Data['RedirectUrl'];
+                header("Location: {$redirectUrl}");
+                exit;
+            }
+        }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Missing Browser Info or IP Address
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - "IpAddress is required" error
+    - "BrowserInfo is required" error
+  </Accordion>
+  
+  <Accordion title="Solution">
+    For 3DS2, you must provide browser information:
+    
+    ```php
+    use MangoPay\BrowserInfo;
+    
+    $payIn->ExecutionDetails->IpAddress = $_SERVER['REMOTE_ADDR'];
+    
+    $payIn->ExecutionDetails->BrowserInfo = new BrowserInfo();
+    $payIn->ExecutionDetails->BrowserInfo->AcceptHeader = $_SERVER['HTTP_ACCEPT'];
+    $payIn->ExecutionDetails->BrowserInfo->JavaEnabled = false;
+    $payIn->ExecutionDetails->BrowserInfo->Language = substr($_SERVER['HTTP_ACCEPT_LANGUAGE'], 0, 2);
+    $payIn->ExecutionDetails->BrowserInfo->ColorDepth = 24;
+    $payIn->ExecutionDetails->BrowserInfo->ScreenHeight = 1080;
+    $payIn->ExecutionDetails->BrowserInfo->ScreenWidth = 1920;
+    $payIn->ExecutionDetails->BrowserInfo->TimeZoneOffset = 0;
+    $payIn->ExecutionDetails->BrowserInfo->UserAgent = $_SERVER['HTTP_USER_AGENT'];
+    $payIn->ExecutionDetails->BrowserInfo->JavascriptEnabled = true;
+    ```
+    
+    <Note>
+    In a real application, you should collect this information from the client-side using JavaScript.
+    </Note>
+  </Accordion>
+</AccordionGroup>
+
+## KYC Document Upload Issues
+
+### File Upload Failures
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - Upload timeout
+    - File size errors
+    - Invalid file format
+  </Accordion>
+  
+  <Accordion title="Solution">
+    Ensure file meets requirements:
+    
+    ```php
+    // Check file before upload
+    $filePath = '/path/to/document.pdf';
+    $fileSize = filesize($filePath);
+    $maxSize = 7 * 1024 * 1024; // 7 MB
+    
+    if ($fileSize > $maxSize) {
+        throw new Exception("File too large. Maximum size: 7MB");
+    }
+    
+    $allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+    $mimeType = mime_content_type($filePath);
+    
+    if (!in_array($mimeType, $allowedTypes)) {
+        throw new Exception("Invalid file type. Allowed: JPEG, PNG, PDF");
+    }
+    
+    // Increase timeout for uploads
+    $api->Config->CurlResponseTimeout = 120;
+    
+    // Create KYC page
+    $page = $api->KycDocuments->CreateKycPage($userId, $kycDocumentId, $filePath);
+    ```
+    
+    **File requirements:**
+    - Maximum size: 7 MB per file
+    - Formats: JPEG, PNG, PDF
+    - Total pages: Maximum 10 per document
+  </Accordion>
+</AccordionGroup>
+
+### Document Validation Failures
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - Document refused
+    - Status changed to VALIDATION_ASKED then REFUSED
+  </Accordion>
+  
+  <Accordion title="Solution">
+    Check the Flags field for specific refusal reasons:
+    
+    ```php
+    $document = $api->KycDocuments->Get($userId, $kycDocumentId);
+    
+    if ($document->Status === 'REFUSED' && $document->Flags) {
+        foreach ($document->Flags as $flag => $value) {
+            echo "Refusal reason: {$flag}\n";
+        }
+        
+        // Common flags:
+        // DOCUMENT_UNREADABLE - Poor quality, improve scan
+        // DOCUMENT_NOT_ACCEPTED - Wrong document type
+        // DOCUMENT_EXPIRED - Document has expired
+        // DOCUMENT_INCOMPLETE - Missing pages
+        // DOCUMENT_DO_NOT_MATCH_USER_DATA - Name/DOB mismatch
+        // DOCUMENT_FALSIFIED - Document appears fake
+        // SPECIFIC_CASE - Contact support
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Payment Issues
+
+### Card Registration Failures
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - Invalid card data
+    - Registration fails
+  </Accordion>
+  
+  <Accordion title="Solution">
+    Follow the complete registration flow:
+    
+    ```php
+    // Step 1: Create card registration
+    $cardReg = new \MangoPay\CardRegistration();
+    $cardReg->UserId = $userId;
+    $cardReg->Currency = 'EUR';
+    $cardReg->CardType = 'CB_VISA_MASTERCARD';
+    
+    $createdReg = $api->CardRegistrations->Create($cardReg);
+    
+    // Step 2: Client-side tokenization (use JavaScript)
+    // Send card data to $createdReg->CardRegistrationURL
+    // Receive RegistrationData
+    
+    // Step 3: Complete registration
+    $cardReg->Id = $createdReg->Id;
+    $cardReg->RegistrationData = $registrationDataFromClient;
+    
+    try {
+        $updatedReg = $api->CardRegistrations->Update($cardReg);
+        $cardId = $updatedReg->CardId;
+    } catch (ResponseException $e) {
+        if (strpos($e->GetMessage(), 'errorCode=105202') !== false) {
+            echo "Card number is invalid";
+        } elseif (strpos($e->GetMessage(), 'errorCode=105203') !== false) {
+            echo "Expiry date is invalid";
+        } elseif (strpos($e->GetMessage(), 'errorCode=105204') !== false) {
+            echo "CVV is invalid";
+        }
+    }
+    ```
+    
+    <Warning>
+    Never send card details directly to your server. Always use client-side tokenization.
+    </Warning>
+  </Accordion>
+</AccordionGroup>
+
+### PayIn Failures
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - PayIn status is FAILED
+    - Various result codes
+  </Accordion>
+  
+  <Accordion title="Solution">
+    Check the ResultCode for specific failure reasons:
+    
+    ```php
+    $payIn = $api->PayIns->Get($payInId);
+    
+    if ($payIn->Status === 'FAILED') {
+        echo "Result Code: " . $payIn->ResultCode . "\n";
+        echo "Result Message: " . $payIn->ResultMessage . "\n";
+        
+        // Common result codes:
+        // 101001 - Generic transaction cancelled
+        // 101002 - Transaction refused by bank
+        // 101101 - Insufficient funds
+        // 101102 - Card limit exceeded
+        // 101103 - Authorization limit exceeded
+        // 101104 - Card inactive
+        // 101105 - Card expired
+        // 101106 - Card invalid
+        // 101399 - 3DS authentication failed
+        // 105202 - Invalid card number
+        // 105203 - Invalid expiry date
+        // 105204 - Invalid CVV
+    }
+    ```
+    
+    [Full list of result codes](https://docs.mangopay.com/api-references/error-codes)
+  </Accordion>
+</AccordionGroup>
+
+## Composer and Dependency Issues
+
+### Version Conflicts
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - Composer cannot resolve dependencies
+    - PSR/Log version conflicts
+  </Accordion>
+  
+  <Accordion title="Solution">
+    The SDK supports psr/log versions 1.x through 3.x:
+    
+    ```bash
+    # Update composer
+    composer update mangopay4/php-sdk
+    
+    # If conflicts persist, try:
+    composer update mangopay4/php-sdk --with-all-dependencies
+    
+    # Or specify version explicitly
+    composer require mangopay4/php-sdk:^3.50
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Autoloader Issues
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - Class not found errors
+    - Autoload errors
+  </Accordion>
+  
+  <Accordion title="Solution">
+    Regenerate autoloader:
+    
+    ```bash
+    composer dump-autoload
+    ```
+    
+    Ensure you're including the autoloader:
+    
+    ```php
+    require_once __DIR__ . '/vendor/autoload.php';
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## PHP Version Issues
+
+### Deprecated Features
+
+<AccordionGroup>
+  <Accordion title="Symptom">
+    - Deprecated warnings in PHP 7.4+
+    - Dynamic property warnings in PHP 8.2+
+  </Accordion>
+  
+  <Accordion title="Solution">
+    Ensure you're using SDK version 3.45.1+ for PHP 8.2 compatibility.
+    
+    ```bash
+    composer require mangopay4/php-sdk:^3.45
+    ```
+    
+    If you see deprecation warnings, they're usually safe to ignore or can be suppressed:
+    
+    ```php
+    error_reporting(E_ALL & ~E_DEPRECATED);
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Getting Additional Help
+
+<CardGroup cols={2}>
+  <Card title="GitHub Issues" icon="github" href="https://github.com/Mangopay/mangopay4-php-sdk/issues">
+    Report bugs or request features
+  </Card>
+  <Card title="API Documentation" icon="book" href="https://docs.mangopay.com">
+    Complete API reference
+  </Card>
+  <Card title="Result Codes" icon="code" href="https://docs.mangopay.com/api-references/error-codes">
+    Error code reference
+  </Card>
+  <Card title="Support Portal" icon="life-ring" href="https://support.mangopay.com">
+    Contact Mangopay support
+  </Card>
+</CardGroup>
+
+## Debugging Tips
+
+### Enable Debug Mode
+
+```php
+// Enable detailed error reporting
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+// Enable SDK logging
+$logger = new \Monolog\Logger('mangopay-debug');
+$logger->pushHandler(new \Monolog\Handler\StreamHandler('php://stdout', \Monolog\Logger::DEBUG));
+$api->setLogger($logger);
+```
+
+### Inspect Raw API Responses
+
+When debugging, you can inspect the raw response:
+
+```php
+try {
+    $user = $api->Users->Create($newUser);
+} catch (\MangoPay\Libraries\ResponseException $e) {
+    echo "HTTP Status: " . $e->getCode() . "\n";
+    echo "Error Message: " . $e->GetMessage() . "\n";
+    echo "Error Details:\n";
+    var_dump($e->GetErrorDetails());
+}
+```
+
+<Note>
+If you're still experiencing issues after trying these solutions, please [open an issue on GitHub](https://github.com/Mangopay/mangopay4-php-sdk/issues) with:
+- SDK version
+- PHP version
+- Complete error message
+- Code snippet (remove sensitive data)
+</Note>

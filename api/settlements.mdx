@@ -1,0 +1,284 @@
+---
+title: "ApiSettlements"
+description: "API methods for managing settlements (Echo API)"
+---
+
+## Overview
+
+The `ApiSettlements` class provides methods for managing settlements via the Echo API (introduced in API v3). Settlements allow platforms to process bulk payout instructions via CSV file uploads.
+
+## Methods
+
+### GenerateUploadUrl
+
+Generate a pre-signed URL to upload a Mangopay-format settlement CSV file.
+
+```php
+public function GenerateUploadUrl(Settlement $settlement, ?string $idempotencyKey = null): Settlement
+```
+
+<ParamField path="settlement" type="Settlement" required>
+  Settlement object containing the file name (must have .csv extension)
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Idempotency key for request replication
+</ParamField>
+
+**Returns:** `Settlement` object with `UploadUrl` property
+
+**Example:**
+
+```php
+$settlement = new MangoPay\Settlement();
+$settlement->FileName = 'settlement_' . date('Y-m-d') . '.csv';
+
+$result = $api->Settlements->GenerateUploadUrl($settlement);
+
+// Use the upload URL to PUT your CSV file
+$uploadUrl = $result->UploadUrl;
+echo "Upload your CSV to: " . $uploadUrl . "\n";
+```
+
+### Get
+
+Retrieve settlement data after file upload.
+
+```php
+public function Get(string $settlementId): Settlement
+```
+
+<ParamField path="settlementId" type="string" required>
+  Settlement identifier
+</ParamField>
+
+**Returns:** `Settlement` object with processing status and results
+
+**Example:**
+
+```php
+$settlement = $api->Settlements->Get($settlementId);
+echo "Status: " . $settlement->Status . "\n";
+echo "Total lines: " . $settlement->TotalLinesCount . "\n";
+echo "Valid lines: " . $settlement->ValidLinesCount . "\n";
+echo "Invalid lines: " . $settlement->InvalidLinesCount . "\n";
+```
+
+### GenerateNewUploadUrl
+
+Generate a new pre-signed URL to replace the file of an existing settlement.
+
+```php
+public function GenerateNewUploadUrl(Settlement $settlement): Settlement
+```
+
+<ParamField path="settlement" type="Settlement" required>
+  Settlement object with ID and new FileName
+</ParamField>
+
+**Returns:** `Settlement` object with new `UploadUrl`
+
+**Example:**
+
+```php
+$settlement = new MangoPay\Settlement();
+$settlement->Id = $existingSettlementId;
+$settlement->FileName = 'settlement_corrected.csv';
+
+$result = $api->Settlements->GenerateNewUploadUrl($settlement);
+```
+
+### GetValidations
+
+Retrieve validation errors for a settlement file.
+
+```php
+public function GetValidations(string $settlementId, ?Pagination $pagination = null): SettlementValidation
+```
+
+<ParamField path="settlementId" type="string" required>
+  Settlement identifier
+</ParamField>
+
+<ParamField path="pagination" type="Pagination">
+  Pagination parameters
+</ParamField>
+
+**Returns:** `SettlementValidation` object with error details
+
+**Example:**
+
+```php
+$validation = $api->Settlements->GetValidations($settlementId);
+
+if ($validation->Footer->InvalidLinesCount > 0) {
+    foreach ($validation->Lines as $line) {
+        echo "Line {$line->LineNumber}: {$line->ErrorMessage}\n";
+    }
+}
+```
+
+### Cancel
+
+Cancel a settlement.
+
+```php
+public function Cancel(string $settlementId): Settlement
+```
+
+<ParamField path="settlementId" type="string" required>
+  Settlement identifier
+</ParamField>
+
+**Returns:** Canceled `Settlement` object
+
+## Settlement Entity
+
+<ResponseField name="Id" type="string">
+  Unique identifier
+</ResponseField>
+
+<ResponseField name="FileName" type="string">
+  Name of the CSV file
+</ResponseField>
+
+<ResponseField name="UploadUrl" type="string">
+  Pre-signed URL for uploading the CSV file (expires after 30 minutes)
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  Settlement status (CREATED, FILE_UPLOADED, PROCESSING, PROCESSED, FAILED, CANCELED)
+</ResponseField>
+
+<ResponseField name="TotalLinesCount" type="int">
+  Total number of lines in the CSV file
+</ResponseField>
+
+<ResponseField name="ValidLinesCount" type="int">
+  Number of valid lines
+</ResponseField>
+
+<ResponseField name="InvalidLinesCount" type="int">
+  Number of invalid lines
+</ResponseField>
+
+<ResponseField name="ProcessedLinesCount" type="int">
+  Number of processed lines
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of creation
+</ResponseField>
+
+<ResponseField name="ProcessingDate" type="int">
+  Unix timestamp when processing started
+</ResponseField>
+
+## CSV File Format
+
+The settlement CSV file must follow this format:
+
+```csv
+RecipientId,Amount,Currency,PayoutMethodType,BankAccountId,Reference
+USER_123,100.50,EUR,LocalBankTransfer,BANK_456,Invoice-001
+USER_789,250.00,USD,InternationalBankTransfer,BANK_012,Payment-002
+```
+
+### Column Descriptions:
+
+- **RecipientId**: Mangopay recipient ID
+- **Amount**: Payout amount (decimal format)
+- **Currency**: 3-letter ISO currency code
+- **PayoutMethodType**: Payment method (LocalBankTransfer, InternationalBankTransfer)
+- **BankAccountId**: Bank account ID for the recipient
+- **Reference**: Your internal reference (optional)
+
+## Complete Workflow
+
+```php
+// Step 1: Generate upload URL
+$settlement = new MangoPay\Settlement();
+$settlement->FileName = 'payouts_2026_03_09.csv';
+
+$result = $api->Settlements->GenerateUploadUrl($settlement);
+$settlementId = $result->Id;
+$uploadUrl = $result->UploadUrl;
+
+// Step 2: Upload CSV file to the pre-signed URL
+$csvContent = file_get_contents('/path/to/settlement.csv');
+
+$ch = curl_init($uploadUrl);
+curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
+curl_setopt($ch, CURLOPT_POSTFIELDS, $csvContent);
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    'Content-Type: text/csv',
+    'Content-Length: ' . strlen($csvContent)
+]);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+$response = curl_exec($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+curl_close($ch);
+
+if ($httpCode === 200) {
+    echo "File uploaded successfully\n";
+    
+    // Step 3: Wait for processing (poll or use webhooks)
+    sleep(5);
+    
+    // Step 4: Check settlement status
+    $settlement = $api->Settlements->Get($settlementId);
+    
+    if ($settlement->Status === 'PROCESSED') {
+        echo "Settlement processed: {$settlement->ValidLinesCount} valid lines\n";
+    } elseif ($settlement->Status === 'FAILED') {
+        // Step 5: Get validation errors
+        $validation = $api->Settlements->GetValidations($settlementId);
+        
+        foreach ($validation->Lines as $line) {
+            echo "Error on line {$line->LineNumber}: {$line->ErrorMessage}\n";
+        }
+    }
+} else {
+    echo "Upload failed with HTTP code: " . $httpCode . "\n";
+}
+```
+
+<Note>
+The upload URL expires after 30 minutes. If you need more time, generate a new URL using `GenerateNewUploadUrl()`.
+</Note>
+
+<Warning>
+Ensure your CSV file is properly formatted and validated before uploading. Invalid lines will be rejected, and you'll need to correct and re-upload the file.
+</Warning>
+
+## Monitoring Settlement Processing
+
+```php
+// Poll for completion
+function waitForSettlement($api, $settlementId, $maxAttempts = 20, $intervalSeconds = 10) {
+    for ($i = 0; $i < $maxAttempts; $i++) {
+        $settlement = $api->Settlements->Get($settlementId);
+        
+        if (in_array($settlement->Status, ['PROCESSED', 'FAILED', 'CANCELED'])) {
+            return $settlement;
+        }
+        
+        sleep($intervalSeconds);
+    }
+    
+    throw new Exception('Settlement processing timed out');
+}
+
+try {
+    $settlement = waitForSettlement($api, $settlementId);
+    echo "Final status: " . $settlement->Status . "\n";
+} catch (Exception $e) {
+    echo "Error: " . $e->getMessage() . "\n";
+}
+```
+
+## See Also
+
+- [Recipients API](/api/recipients)
+- [PayOuts API](/api/payouts)
+- [Repudiations API](/api/repudiations)

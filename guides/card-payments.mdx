@@ -1,0 +1,510 @@
+---
+title: 'Card Payments'
+description: 'Integrate card payment processing with Mangopay'
+---
+
+## Overview
+
+Card payments are one of the most common payment methods. Mangopay provides multiple approaches to process card payments:
+
+- **Card Registration**: Securely tokenize cards for future use
+- **Direct Pay-in**: Process payments directly with tokenized cards
+- **Web Pay-in**: Redirect users to a secure payment page
+- **3D Secure**: Handle strong customer authentication
+
+## Card Registration Flow
+
+Card registration allows you to securely collect and tokenize card details:
+
+<Steps>
+  <Step title="Create Card Registration">
+    Initialize a card registration object:
+    
+    ```php
+    $cardRegistration = new MangoPay\CardRegistration();
+    $cardRegistration->UserId = $userId;
+    $cardRegistration->Currency = 'EUR';
+    $cardRegistration->CardType = 'CB_VISA_MASTERCARD';
+    
+    try {
+        $createdCardReg = $api->CardRegistrations->Create($cardRegistration);
+        
+        // Send these to your frontend
+        $cardRegistrationData = [
+            'id' => $createdCardReg->Id,
+            'accessKey' => $createdCardReg->AccessKey,
+            'preregistrationData' => $createdCardReg->PreregistrationData,
+            'cardRegistrationURL' => $createdCardReg->CardRegistrationURL
+        ];
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        echo "Error: " . $e->GetMessage();
+    }
+    ```
+  </Step>
+
+  <Step title="Collect Card Data (Frontend)">
+    On your frontend, collect card details and post to the card registration URL:
+    
+    ```javascript
+    // Example frontend code (JavaScript)
+    const formData = new FormData();
+    formData.append('accessKeyRef', cardRegistrationData.accessKey);
+    formData.append('data', cardRegistrationData.preregistrationData);
+    formData.append('cardNumber', '4970100000000154');
+    formData.append('cardExpirationDate', '1230');
+    formData.append('cardCvx', '123');
+    
+    fetch(cardRegistrationData.cardRegistrationURL, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.text())
+    .then(registrationData => {
+        // Send registrationData back to your server
+    });
+    ```
+  </Step>
+
+  <Step title="Complete Registration (Backend)">
+    Update the card registration with the returned data:
+    
+    ```php
+    $cardRegistration = $api->CardRegistrations->Get($cardRegistrationId);
+    $cardRegistration->RegistrationData = $registrationData; // From frontend
+    
+    try {
+        $updatedCardReg = $api->CardRegistrations->Update($cardRegistration);
+        
+        if ($updatedCardReg->Status === 'VALIDATED') {
+            $cardId = $updatedCardReg->CardId;
+            echo "Card successfully registered: " . $cardId;
+        } else {
+            echo "Card registration failed: " . $updatedCardReg->ResultMessage;
+        }
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        echo "Error: " . $e->GetMessage();
+    }
+    ```
+  </Step>
+</Steps>
+
+## Processing Direct Card Payments
+
+Once you have a registered card, you can process direct payments:
+
+```php
+$payIn = new MangoPay\PayIn();
+$payIn->AuthorId = $userId;
+$payIn->CreditedUserId = $userId;
+$payIn->CreditedWalletId = $walletId;
+
+// Debited funds
+$payIn->DebitedFunds = new MangoPay\Money();
+$payIn->DebitedFunds->Currency = 'EUR';
+$payIn->DebitedFunds->Amount = 10000; // 100.00 EUR
+
+// Fees
+$payIn->Fees = new MangoPay\Money();
+$payIn->Fees->Currency = 'EUR';
+$payIn->Fees->Amount = 100; // 1.00 EUR
+
+// Payment details
+$payIn->PaymentType = 'CARD';
+$payIn->PaymentDetails = new MangoPay\PayInPaymentDetailsCard();
+$payIn->PaymentDetails->CardType = 'CB_VISA_MASTERCARD';
+
+// Execution details
+$payIn->ExecutionType = 'DIRECT';
+$payIn->ExecutionDetails = new MangoPay\PayInExecutionDetailsDirect();
+$payIn->ExecutionDetails->CardId = $cardId;
+$payIn->ExecutionDetails->SecureModeReturnURL = 'https://your-site.com/payment-return';
+
+try {
+    $createdPayIn = $api->PayIns->Create($payIn);
+    
+    // Check if 3DS is required
+    if ($createdPayIn->SecureModeNeeded && $createdPayIn->SecureModeRedirectURL) {
+        // Redirect user to 3DS page
+        header('Location: ' . $createdPayIn->SecureModeRedirectURL);
+        exit;
+    }
+    
+    // Check payment status
+    if ($createdPayIn->Status === 'SUCCEEDED') {
+        echo "Payment successful!";
+    } elseif ($createdPayIn->Status === 'FAILED') {
+        echo "Payment failed: " . $createdPayIn->ResultMessage;
+    }
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Web Card Pay-in
+
+Redirect users to a Mangopay-hosted payment page:
+
+```php
+$payIn = new MangoPay\PayIn();
+$payIn->AuthorId = $userId;
+$payIn->CreditedUserId = $userId;
+$payIn->CreditedWalletId = $walletId;
+
+$payIn->DebitedFunds = new MangoPay\Money();
+$payIn->DebitedFunds->Currency = 'EUR';
+$payIn->DebitedFunds->Amount = 10000;
+
+$payIn->Fees = new MangoPay\Money();
+$payIn->Fees->Currency = 'EUR';
+$payIn->Fees->Amount = 100;
+
+// Payment details
+$payIn->PaymentType = 'CARD';
+$payIn->PaymentDetails = new MangoPay\PayInPaymentDetailsCard();
+$payIn->PaymentDetails->CardType = 'CB_VISA_MASTERCARD';
+
+// Execution details
+$payIn->ExecutionType = 'WEB';
+$payIn->ExecutionDetails = new MangoPay\PayInExecutionDetailsWeb();
+$payIn->ExecutionDetails->ReturnURL = 'https://your-site.com/payment-return';
+$payIn->ExecutionDetails->Culture = 'EN'; // Payment page language
+$payIn->ExecutionDetails->TemplateURLOptions = new MangoPay\PayInCardTemplateURLOptions();
+$payIn->ExecutionDetails->TemplateURLOptions->PAYLINE = 'https://your-site.com/custom-template';
+
+try {
+    $createdPayIn = $api->PayIns->Create($payIn);
+    
+    // Redirect user to payment page
+    header('Location: ' . $createdPayIn->ExecutionDetails->RedirectURL);
+    exit;
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Handling 3D Secure
+
+3D Secure (3DS) provides additional security for card payments:
+
+```php
+function processCardPayment($api, $userId, $walletId, $cardId, $amount) {
+    $payIn = new MangoPay\PayIn();
+    $payIn->AuthorId = $userId;
+    $payIn->CreditedUserId = $userId;
+    $payIn->CreditedWalletId = $walletId;
+    
+    $payIn->DebitedFunds = new MangoPay\Money();
+    $payIn->DebitedFunds->Currency = 'EUR';
+    $payIn->DebitedFunds->Amount = $amount;
+    
+    $payIn->Fees = new MangoPay\Money();
+    $payIn->Fees->Currency = 'EUR';
+    $payIn->Fees->Amount = 0;
+    
+    $payIn->PaymentType = 'CARD';
+    $payIn->PaymentDetails = new MangoPay\PayInPaymentDetailsCard();
+    $payIn->PaymentDetails->CardType = 'CB_VISA_MASTERCARD';
+    
+    $payIn->ExecutionType = 'DIRECT';
+    $payIn->ExecutionDetails = new MangoPay\PayInExecutionDetailsDirect();
+    $payIn->ExecutionDetails->CardId = $cardId;
+    $payIn->ExecutionDetails->SecureModeReturnURL = 'https://your-site.com/3ds-return';
+    
+    try {
+        $createdPayIn = $api->PayIns->Create($payIn);
+        
+        // Check if 3DS authentication is needed
+        if ($createdPayIn->SecureModeNeeded) {
+            return [
+                'status' => '3DS_REQUIRED',
+                'redirectUrl' => $createdPayIn->SecureModeRedirectURL,
+                'payInId' => $createdPayIn->Id
+            ];
+        }
+        
+        // Payment completed without 3DS
+        return [
+            'status' => $createdPayIn->Status,
+            'payInId' => $createdPayIn->Id
+        ];
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        return [
+            'status' => 'ERROR',
+            'message' => $e->GetMessage()
+        ];
+    }
+}
+
+// Usage
+$result = processCardPayment($api, $userId, $walletId, $cardId, 10000);
+
+if ($result['status'] === '3DS_REQUIRED') {
+    // Redirect user to 3DS page
+    header('Location: ' . $result['redirectUrl']);
+    exit;
+} elseif ($result['status'] === 'SUCCEEDED') {
+    echo "Payment successful!";
+} else {
+    echo "Payment failed";
+}
+```
+
+## Managing Cards
+
+### Get Card Details
+
+```php
+try {
+    $card = $api->Cards->Get($cardId);
+    
+    echo "Card alias: " . $card->Alias . "\n";
+    echo "Card type: " . $card->CardType . "\n";
+    echo "Expiration: " . $card->ExpirationDate . "\n";
+    echo "Active: " . ($card->Active ? 'Yes' : 'No') . "\n";
+    echo "Validity: " . $card->Validity;
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+### Deactivate a Card
+
+```php
+$card = $api->Cards->Get($cardId);
+$card->Active = false;
+
+try {
+    $updatedCard = $api->Cards->Update($card);
+    echo "Card deactivated";
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+### Get User's Cards
+
+```php
+$pagination = new MangoPay\Pagination(1, 20);
+
+try {
+    $cards = $api->Users->GetCards($userId, $pagination);
+    
+    foreach ($cards as $card) {
+        echo "Card: " . $card->Alias . "\n";
+        echo "Type: " . $card->CardType . "\n";
+        echo "Active: " . ($card->Active ? 'Yes' : 'No') . "\n\n";
+    }
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+### Filter Active Cards
+
+```php
+$pagination = new MangoPay\Pagination(1, 20);
+$filter = new MangoPay\FilterCards();
+$filter->Active = true;
+
+$activeCards = $api->Users->GetCards($userId, $pagination, $filter);
+```
+
+## Card Validation
+
+Validate a card without processing a payment:
+
+```php
+$cardValidation = new MangoPay\CardValidation();
+$cardValidation->AuthorId = $userId;
+$cardValidation->SecureModeReturnURL = 'https://your-site.com/validation-return';
+$cardValidation->IpAddress = $_SERVER['REMOTE_ADDR'];
+$cardValidation->BrowserInfo = new MangoPay\BrowserInfo();
+$cardValidation->BrowserInfo->AcceptHeader = $_SERVER['HTTP_ACCEPT'];
+$cardValidation->BrowserInfo->JavaEnabled = false;
+$cardValidation->BrowserInfo->Language = 'en-US';
+$cardValidation->BrowserInfo->ColorDepth = 24;
+$cardValidation->BrowserInfo->ScreenHeight = 1080;
+$cardValidation->BrowserInfo->ScreenWidth = 1920;
+$cardValidation->BrowserInfo->TimeZoneOffset = 0;
+$cardValidation->BrowserInfo->UserAgent = $_SERVER['HTTP_USER_AGENT'];
+
+try {
+    $validation = $api->Cards->ValidateCard($cardId, $cardValidation);
+    
+    if ($validation->Status === 'SUCCEEDED') {
+        echo "Card is valid";
+    } elseif ($validation->SecureModeNeeded) {
+        header('Location: ' . $validation->SecureModeRedirectURL);
+    }
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Card Pre-authorizations
+
+Hold funds on a card without capturing them immediately:
+
+```php
+$preAuth = new MangoPay\CardPreAuthorization();
+$preAuth->AuthorId = $userId;
+$preAuth->DebitedFunds = new MangoPay\Money();
+$preAuth->DebitedFunds->Currency = 'EUR';
+$preAuth->DebitedFunds->Amount = 10000; // Hold 100.00 EUR
+$preAuth->CardId = $cardId;
+$preAuth->SecureModeReturnURL = 'https://your-site.com/return';
+
+try {
+    $createdPreAuth = $api->CardPreAuthorizations->Create($preAuth);
+    
+    if ($createdPreAuth->Status === 'SUCCEEDED') {
+        echo "Pre-authorization successful: " . $createdPreAuth->Id;
+        
+        // Later, capture the funds
+        // or cancel the pre-authorization
+    }
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Recurring Card Payments
+
+Set up recurring payments:
+
+```php
+// Step 1: Create recurring registration
+$registration = new MangoPay\PayInRecurringRegistration();
+$registration->AuthorId = $userId;
+$registration->CardId = $cardId;
+$registration->CreditedUserId = $userId;
+$registration->CreditedWalletId = $walletId;
+$registration->FirstTransactionDebitedFunds = new MangoPay\Money();
+$registration->FirstTransactionDebitedFunds->Currency = 'EUR';
+$registration->FirstTransactionDebitedFunds->Amount = 10000;
+$registration->FirstTransactionFees = new MangoPay\Money();
+$registration->FirstTransactionFees->Currency = 'EUR';
+$registration->FirstTransactionFees->Amount = 0;
+
+$created = $api->PayIns->CreateRecurringRegistration($registration);
+
+// Step 2: Create first payment (CIT - Customer Initiated Transaction)
+$cit = new MangoPay\RecurringPayInCIT();
+$cit->RecurringPayinRegistrationId = $created->Id;
+$cit->DebitedFunds = new MangoPay\Money();
+$cit->DebitedFunds->Currency = 'EUR';
+$cit->DebitedFunds->Amount = 10000;
+$cit->Fees = new MangoPay\Money();
+$cit->Fees->Currency = 'EUR';
+$cit->Fees->Amount = 0;
+
+$firstPayment = $api->PayIns->CreateRecurringPayInRegistrationCIT($cit);
+
+// Step 3: Create subsequent payments (MIT - Merchant Initiated Transaction)
+$mit = new MangoPay\RecurringPayInMIT();
+$mit->RecurringPayinRegistrationId = $created->Id;
+$mit->DebitedFunds = new MangoPay\Money();
+$mit->DebitedFunds->Currency = 'EUR';
+$mit->DebitedFunds->Amount = 10000;
+$mit->Fees = new MangoPay\Money();
+$mit->Fees->Currency = 'EUR';
+$mit->Fees->Amount = 0;
+
+$recurringPayment = $api->PayIns->CreateRecurringPayInRegistrationMIT($mit);
+```
+
+## Card Fingerprinting
+
+Get cards with the same fingerprint:
+
+```php
+$card = $api->Cards->Get($cardId);
+$fingerprint = $card->Fingerprint;
+
+// Get all cards with same fingerprint
+$pagination = new MangoPay\Pagination(1, 20);
+$cardsWithSameFingerprint = $api->Cards->GetByFingerprint($fingerprint, $pagination);
+
+foreach ($cardsWithSameFingerprint as $card) {
+    echo "Card: " . $card->Alias . " (User: " . $card->UserId . ")\n";
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Never Store Card Data" icon="shield-halved">
+    Always use card registration to tokenize cards. Never store raw card details.
+  </Card>
+  
+  <Card title="Implement 3DS" icon="lock">
+    Always support 3D Secure for enhanced security and lower fraud rates.
+  </Card>
+  
+  <Card title="Use Idempotency Keys" icon="key">
+    Prevent duplicate charges by using idempotency keys.
+  </Card>
+  
+  <Card title="Handle All Statuses" icon="list-check">
+    Properly handle all payment statuses including pending, succeeded, and failed.
+  </Card>
+</CardGroup>
+
+## Error Handling
+
+```php
+try {
+    $payIn = $api->PayIns->Create($cardPayIn, $idempotencyKey);
+} catch (MangoPay\Libraries\ResponseException $e) {
+    $errorDetails = $e->GetErrorDetails();
+    
+    foreach ($errorDetails as $error) {
+        switch ($error->Message) {
+            case 'Secure mode: 3DSecure authentication is not available':
+                echo "3DS authentication failed";
+                break;
+            case 'Card is inactive':
+                echo "This card cannot be used";
+                break;
+            case 'Transaction refused':
+                echo "Payment was declined by the bank";
+                break;
+            default:
+                echo "Error: " . $error->Message;
+        }
+    }
+}
+```
+
+## Testing Cards
+
+Mangopay provides test card numbers for sandbox:
+
+<Note>
+**Test Card Numbers:**
+- Success: 4970100000000154
+- 3DS Required: 4970101122334422
+- Insufficient funds: 4970100000000101
+- Declined: 4970100000000119
+</Note>
+
+```php
+// Example test payment
+$testPayIn = new MangoPay\PayIn();
+// ... configure payment ...
+$testPayIn->ExecutionDetails->CardId = $testCardId; // Use test card
+
+$result = $api->PayIns->Create($testPayIn);
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Processing Pay-ins" icon="arrow-down" href="/guides/processing-payins">
+    Learn more about payment processing
+  </Card>
+  
+  <Card title="Webhooks" icon="bell" href="/guides/webhooks">
+    Get real-time notifications for card payments
+  </Card>
+</CardGroup>

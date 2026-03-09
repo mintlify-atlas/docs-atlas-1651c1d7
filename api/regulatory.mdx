@@ -1,0 +1,198 @@
+---
+title: 'Regulatory'
+description: 'Retrieve country authorization information and regulatory restrictions'
+icon: 'scale-balanced'
+---
+
+The `ApiRegulatory` class provides methods to retrieve regulatory information about country authorizations. This helps you understand which Mangopay features are available in specific countries and any restrictions that may apply.
+
+## Methods
+
+### GetCountryAuthorizations
+
+Retrieves authorization information for a specific country.
+
+```php
+public function GetCountryAuthorizations($countryCode)
+```
+
+<ParamField name="countryCode" type="string" required>
+  The ISO 3166-1 alpha-2 country code (e.g., 'US', 'FR', 'GB')
+</ParamField>
+
+<ResponseField name="return" type="\MangoPay\CountryAuthorization">
+  The CountryAuthorization object containing authorization details for the specified country
+</ResponseField>
+
+#### Example
+
+```php
+$api = new \MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$countryAuth = $api->Regulatory->GetCountryAuthorizations('FR');
+
+echo "Country: " . $countryAuth->CountryName . "\n";
+echo "Country Code: " . $countryAuth->CountryCode . "\n";
+echo "Last Updated: " . $countryAuth->LastUpdate . "\n";
+
+if ($countryAuth->Authorization) {
+    // Access authorization data
+    echo "Authorization details available\n";
+}
+```
+
+---
+
+### GetAllCountryAuthorizations
+
+Retrieves authorization information for all countries with optional pagination and sorting.
+
+```php
+public function GetAllCountryAuthorizations(
+    & $pagination = null,
+    $sorting = null
+)
+```
+
+<ParamField name="pagination" type="\MangoPay\Pagination" optional>
+  Pagination object passed by reference to track pagination state
+</ParamField>
+
+<ParamField name="sorting" type="\MangoPay\Sorting" optional>
+  Object to sort the results (e.g., by country code or last update date)
+</ParamField>
+
+<ResponseField name="return" type="\MangoPay\CountryAuthorization[]">
+  Array of CountryAuthorization objects for all countries
+</ResponseField>
+
+#### Example
+
+```php
+$api = new \MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$pagination = new \MangoPay\Pagination(1, 100);
+$sorting = new \MangoPay\Sorting();
+$sorting->AddField('CountryCode', 'ASC');
+
+$authorizations = $api->Regulatory->GetAllCountryAuthorizations(
+    $pagination,
+    $sorting
+);
+
+foreach ($authorizations as $auth) {
+    echo $auth->CountryCode . ": " . $auth->CountryName . "\n";
+}
+
+echo "\nTotal countries: " . $pagination->TotalItems . "\n";
+```
+
+## CountryAuthorization Object
+
+The `CountryAuthorization` object contains regulatory information for a specific country.
+
+<ResponseField name="CountryCode" type="string">
+  The ISO 3166-1 alpha-2 country code
+</ResponseField>
+
+<ResponseField name="CountryName" type="string">
+  The full name of the country
+</ResponseField>
+
+<ResponseField name="Authorization" type="\MangoPay\CountryAuthorizationData">
+  Object containing detailed information about the country's restrictions and authorized features. This includes information about:
+  - Blocked user types
+  - Blocked payment methods
+  - Blocked functionality
+  - Other country-specific restrictions
+</ResponseField>
+
+<ResponseField name="LastUpdate" type="string">
+  The date and time when at least one of the authorizations was last updated
+</ResponseField>
+
+## Use Cases
+
+### Check country availability
+
+Before onboarding users from a specific country, check if Mangopay services are available:
+
+```php
+$countryAuth = $api->Regulatory->GetCountryAuthorizations('US');
+
+if ($countryAuth->Authorization) {
+    // Check specific restrictions
+    echo "Country is supported\n";
+} else {
+    echo "Country may have restrictions\n";
+}
+```
+
+### Display supported countries
+
+Retrieve all country authorizations to display a list of supported countries in your application:
+
+```php
+$pagination = new \MangoPay\Pagination(1, 200);
+$authorizations = $api->Regulatory->GetAllCountryAuthorizations($pagination);
+
+$supportedCountries = [];
+foreach ($authorizations as $auth) {
+    $supportedCountries[] = [
+        'code' => $auth->CountryCode,
+        'name' => $auth->CountryName
+    ];
+}
+
+// Use $supportedCountries in your UI
+```
+
+### Monitor regulatory changes
+
+Regularly check the `LastUpdate` field to stay informed about regulatory changes:
+
+```php
+$authorizations = $api->Regulatory->GetAllCountryAuthorizations();
+
+foreach ($authorizations as $auth) {
+    $lastUpdate = strtotime($auth->LastUpdate);
+    $daysSinceUpdate = (time() - $lastUpdate) / (60 * 60 * 24);
+    
+    if ($daysSinceUpdate < 30) {
+        echo $auth->CountryCode . " was recently updated\n";
+    }
+}
+```
+
+## Best Practices
+
+<Tip>
+  Cache country authorization data in your application to reduce API calls. Update the cache daily or when you receive notifications about regulatory changes.
+</Tip>
+
+<Info>
+  Always check country authorizations before enabling features for users from specific countries. Regulatory requirements may restrict certain payment methods or user types.
+</Info>
+
+<Warning>
+  Regulatory information can change over time. Implement a process to regularly refresh your cached data and notify affected users of any changes.
+</Warning>
+
+## Compliance Considerations
+
+Country authorization data helps you:
+
+- **Ensure compliance** - Stay compliant with local regulations by understanding country-specific restrictions
+- **Plan market expansion** - Evaluate which countries support your required features before expanding
+- **Manage user expectations** - Inform users about available payment methods and features based on their country
+- **Implement geo-restrictions** - Block or allow access to features based on regulatory requirements
+
+## Related Resources
+
+- [KYC Documents](/api/kyc-documents) - Manage identity verification documents
+- [Identity Verification](/api/identity-verification) - Create verification sessions
+- [UBO Declarations](/api/ubo-declarations) - Manage beneficial owner declarations

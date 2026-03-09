@@ -1,0 +1,341 @@
+---
+title: 'Wallets'
+description: 'Learn about wallets and how to manage user funds'
+icon: 'wallet'
+---
+
+## Overview
+
+Wallets are containers that hold funds for users on the Mangopay platform. Each wallet belongs to one or more users and has a specific currency. Wallets are the central hub for all money movements in Mangopay.
+
+## Wallet Structure
+
+A wallet contains the following key information:
+
+```php
+use MangoPay\Wallet;
+
+// Wallet properties
+$wallet->Id;              // Unique identifier
+$wallet->Owners;          // Array of user IDs who own the wallet
+$wallet->Description;     // Custom description
+$wallet->Balance;         // Current balance (Money object)
+$wallet->Currency;        // Currency code (EUR, USD, GBP, etc.)
+```
+
+Reference: ~/workspace/source/MangoPay/Wallet.php:8
+
+<Info>
+The `Balance` property is read-only and automatically updated by Mangopay when transactions occur.
+</Info>
+
+## Creating a Wallet
+
+Create a wallet for one or more users:
+
+```php
+use MangoPay\Wallet;
+
+$wallet = new Wallet();
+$wallet->Owners = [$userId]; // Array of user IDs
+$wallet->Description = "User's main wallet";
+$wallet->Currency = "EUR";
+
+$createdWallet = $api->Wallets->Create($wallet);
+
+echo "Wallet ID: " . $createdWallet->Id;
+echo "Balance: " . $createdWallet->Balance->Amount . " " . $createdWallet->Balance->Currency;
+```
+
+Reference: ~/workspace/source/MangoPay/ApiWallets.php:15
+
+### Multiple Owners
+
+Wallets can have multiple owners, useful for shared accounts:
+
+```php
+$sharedWallet = new Wallet();
+$sharedWallet->Owners = [$userId1, $userId2, $userId3];
+$sharedWallet->Description = "Shared project wallet";
+$sharedWallet->Currency = "EUR";
+
+$createdSharedWallet = $api->Wallets->Create($sharedWallet);
+```
+
+<Warning>
+All owners have equal access to the wallet. Be careful when creating wallets with multiple owners.
+</Warning>
+
+## Retrieving Wallets
+
+### Get a Specific Wallet
+
+```php
+$wallet = $api->Wallets->Get($walletId);
+
+echo "Description: " . $wallet->Description;
+echo "Balance: " . $wallet->Balance->Amount / 100; // Amount is in cents
+echo "Currency: " . $wallet->Currency;
+```
+
+Reference: ~/workspace/source/MangoPay/ApiWallets.php:27
+
+### Get Wallets for a User
+
+```php
+use MangoPay\Pagination;
+
+$pagination = new Pagination(1, 50);
+$wallets = $api->Users->GetWallets($userId, $pagination);
+
+foreach ($wallets as $wallet) {
+    echo "Wallet {$wallet->Id}: {$wallet->Balance->Amount} {$wallet->Currency}\n";
+}
+```
+
+### Get with SCA Context
+
+For Strong Customer Authentication:
+
+```php
+try {
+    $wallet = $api->Wallets->Get($walletId, "USER_PRESENT");
+} catch (\MangoPay\Libraries\ResponseException $e) {
+    if ($e->GetErrorCode() == 401) {
+        $errorDetails = $e->GetErrorDetails();
+        // Redirect user to: $errorDetails->Data['RedirectUrl']
+    }
+}
+```
+
+Reference: ~/workspace/source/MangoPay/ApiWallets.php:27
+
+## Updating a Wallet
+
+You can update the wallet description:
+
+```php
+$wallet = $api->Wallets->Get($walletId);
+$wallet->Description = "Updated description";
+
+$updatedWallet = $api->Wallets->Update($wallet);
+```
+
+<Warning>
+You cannot modify the `Owners`, `Currency`, or `Balance` properties directly. Balance changes through transactions only.
+</Warning>
+
+Reference: ~/workspace/source/MangoPay/ApiWallets.php:40
+
+## Wallet Balance
+
+The balance is represented by a `Money` object:
+
+```php
+$balance = $wallet->Balance;
+
+echo "Amount in cents: " . $balance->Amount;
+echo "Currency: " . $balance->Currency;
+
+// Convert to decimal
+$balanceInEuros = $balance->Amount / 100;
+echo "Balance: €" . number_format($balanceInEuros, 2);
+```
+
+<Info>
+All monetary amounts in Mangopay are stored in cents (or the smallest currency unit). For example, 1000 = €10.00.
+</Info>
+
+Reference: ~/workspace/source/MangoPay/Wallet.php:26
+
+## Wallet Transactions
+
+Retrieve all transactions for a wallet:
+
+```php
+use MangoPay\Pagination;
+use MangoPay\FilterTransactions;
+use MangoPay\Sorting;
+use MangoPay\SortDirection;
+
+$pagination = new Pagination(1, 50);
+
+$filter = new FilterTransactions();
+$filter->Type = 'PAYIN'; // PAYIN, PAYOUT, or TRANSFER
+$filter->Status = 'SUCCEEDED';
+$filter->Nature = 'REGULAR';
+
+$sorting = new Sorting();
+$sorting->AddField('CreationDate', SortDirection::DESC);
+
+$transactions = $api->Wallets->GetTransactions(
+    $walletId,
+    $pagination,
+    $filter,
+    $sorting
+);
+
+foreach ($transactions as $transaction) {
+    echo "Transaction {$transaction->Id}: ";
+    echo "{$transaction->Type} - ";
+    echo "{$transaction->Status} - ";
+    echo "{$transaction->DebitedFunds->Amount} {$transaction->DebitedFunds->Currency}\n";
+}
+```
+
+Reference: ~/workspace/source/MangoPay/ApiWallets.php:53
+
+### Transaction Types
+
+<CardGroup cols={3}>
+  <Card title="Pay-In" icon="arrow-down">
+    Funds entering the wallet from external sources
+  </Card>
+  <Card title="Transfer" icon="arrow-right-arrow-left">
+    Funds moving between wallets
+  </Card>
+  <Card title="Pay-Out" icon="arrow-up">
+    Funds leaving the wallet to bank accounts
+  </Card>
+</CardGroup>
+
+### Transaction Status Filters
+
+```php
+$filter->Status = 'SUCCEEDED'; // Successfully completed
+$filter->Status = 'FAILED';    // Transaction failed
+$filter->Status = 'CREATED';   // Just created, not processed yet
+```
+
+## Currency Support
+
+Mangopay supports multiple currencies. Common currency codes:
+
+- `EUR` - Euro
+- `GBP` - British Pound
+- `USD` - US Dollar
+- `CHF` - Swiss Franc
+- `PLN` - Polish Złoty
+- `DKK` - Danish Krone
+- `SEK` - Swedish Krona
+- `NOK` - Norwegian Krone
+- `CZK` - Czech Koruna
+- `CAD` - Canadian Dollar
+- `AUD` - Australian Dollar
+- `JPY` - Japanese Yen
+
+<Warning>
+Once a wallet is created with a specific currency, the currency cannot be changed. Create separate wallets for different currencies.
+</Warning>
+
+## Wallet Operations
+
+### Check Wallet Balance Before Transfer
+
+```php
+function canTransfer($api, $walletId, $amount) {
+    $wallet = $api->Wallets->Get($walletId);
+    return $wallet->Balance->Amount >= $amount;
+}
+
+if (canTransfer($api, $sourceWalletId, 1000)) {
+    // Proceed with transfer
+} else {
+    echo "Insufficient funds";
+}
+```
+
+### Get Total Balance Across Wallets
+
+```php
+function getTotalBalance($api, $userId, $currency) {
+    $wallets = $api->Users->GetWallets($userId);
+    $total = 0;
+    
+    foreach ($wallets as $wallet) {
+        if ($wallet->Currency === $currency) {
+            $total += $wallet->Balance->Amount;
+        }
+    }
+    
+    return $total;
+}
+
+$totalEuros = getTotalBalance($api, $userId, 'EUR');
+echo "Total balance: €" . number_format($totalEuros / 100, 2);
+```
+
+## Wallet Best Practices
+
+<AccordionGroup>
+  <Accordion title="Create separate wallets for different purposes">
+    Consider creating different wallets for different purposes (e.g., operating funds, reserve funds, commission wallet) to improve accounting and tracking.
+  </Accordion>
+  
+  <Accordion title="Use descriptive wallet names">
+    Set clear, descriptive names in the `Description` field to help identify wallet purposes.
+  </Accordion>
+  
+  <Accordion title="Store wallet IDs in your database">
+    Always map wallet IDs to your application's data model for easy retrieval.
+  </Accordion>
+  
+  <Accordion title="Check balance before operations">
+    Always verify sufficient funds before initiating transfers or payouts.
+  </Accordion>
+  
+  <Accordion title="Monitor wallet transactions regularly">
+    Implement logging and monitoring for all wallet transactions to detect issues early.
+  </Accordion>
+  
+  <Accordion title="Handle currency carefully">
+    Remember that wallets are single-currency. Plan your currency strategy before creating wallets.
+  </Accordion>
+</AccordionGroup>
+
+## Common Use Cases
+
+### Marketplace Platform
+
+```php
+// Create a wallet for a seller
+$sellerWallet = new Wallet();
+$sellerWallet->Owners = [$sellerId];
+$sellerWallet->Description = "Seller earnings wallet";
+$sellerWallet->Currency = "EUR";
+$sellerWallet = $api->Wallets->Create($sellerWallet);
+
+// Create a commission wallet for the platform
+$commissionWallet = new Wallet();
+$commissionWallet->Owners = [$platformUserId];
+$commissionWallet->Description = "Platform commission wallet";
+$commissionWallet->Currency = "EUR";
+$commissionWallet = $api->Wallets->Create($commissionWallet);
+```
+
+### Multi-Currency Support
+
+```php
+// Create wallets for each currency a user needs
+$currencies = ['EUR', 'GBP', 'USD'];
+$wallets = [];
+
+foreach ($currencies as $currency) {
+    $wallet = new Wallet();
+    $wallet->Owners = [$userId];
+    $wallet->Description = "{$currency} wallet for User {$userId}";
+    $wallet->Currency = $currency;
+    $wallets[$currency] = $api->Wallets->Create($wallet);
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Payment Flows" icon="money-bill-transfer" href="/concepts/payment-flows">
+    Learn about pay-ins, transfers, and pay-outs
+  </Card>
+  <Card title="Users" icon="users" href="/concepts/users">
+    Understand user management
+  </Card>
+</CardGroup>

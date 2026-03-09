@@ -1,80 +1,336 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: 'Quick Start'
+description: 'Build your first integration with the Mangopay PHP SDK'
 ---
 
-## Get started in three steps
+## Your First Integration
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This guide walks you through creating your first Mangopay integration: creating a natural user and retrieving their information. You'll learn the basic patterns used throughout the SDK.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  Before starting, ensure you've [installed the SDK](/installation) and have your [API credentials](/introduction#getting-your-api-credentials) ready.
 </Note>
+
+## Complete Example: Creating a User
+
+Here's a complete working example that demonstrates the core SDK usage pattern:
+
+```php
+<?php
+
+require_once 'vendor/autoload.php';
+
+use MangoPay\MangoPayApi;
+use MangoPay\UserNatural;
+use MangoPay\Address;
+use MangoPay\Libraries\ResponseException;
+use MangoPay\Libraries\Exception;
+
+// Initialize the API
+$api = new MangoPayApi();
+
+// Configure with your credentials
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+$api->Config->TemporaryFolder = '/tmp/mangopay/';
+
+// Create a new natural user
+$user = new UserNatural();
+$user->FirstName = 'John';
+$user->LastName = 'Doe';
+$user->Email = 'john.doe@example.com';
+$user->Birthday = mktime(0, 0, 0, 12, 21, 1985);
+$user->Nationality = 'FR';
+$user->CountryOfResidence = 'FR';
+$user->TermsAndConditionsAccepted = true;
+
+// Set user address
+$user->Address = new Address();
+$user->Address->AddressLine1 = '1 Mangopay Street';
+$user->Address->AddressLine2 = 'The Oasis';
+$user->Address->City = 'Paris';
+$user->Address->Region = 'Ile-de-France';
+$user->Address->PostalCode = '75001';
+$user->Address->Country = 'FR';
+
+try {
+    // Create the user via API
+    $createdUser = $api->Users->Create($user);
+    
+    echo "User created successfully!\n";
+    echo "User ID: " . $createdUser->Id . "\n";
+    echo "Name: " . $createdUser->FirstName . " " . $createdUser->LastName . "\n";
+    echo "Email: " . $createdUser->Email . "\n";
+    
+    // Retrieve the user by ID
+    $retrievedUser = $api->Users->Get($createdUser->Id);
+    echo "\nUser retrieved successfully!\n";
+    echo "Person Type: " . $retrievedUser->PersonType . "\n";
+    
+} catch (ResponseException $e) {
+    // Handle API errors
+    echo "API Error: " . $e->GetMessage() . "\n";
+    echo "Error Code: " . $e->GetCode() . "\n";
+    echo "Details: " . print_r($e->GetErrorDetails(), true);
+} catch (Exception $e) {
+    // Handle general SDK errors
+    echo "SDK Error: " . $e->GetMessage() . "\n";
+}
+```
+
+## Breaking Down the Example
+
+Let's examine each part of the code:
+
+### Step 1: Initialize the API
+
+```php
+use MangoPay\MangoPayApi;
+
+$api = new MangoPayApi();
+```
+
+The `MangoPayApi` class is your main entry point. It provides access to all SDK functionality through manager properties like `Users`, `Wallets`, `PayIns`, etc.
+
+### Step 2: Configure Credentials
+
+```php
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+$api->Config->TemporaryFolder = '/tmp/mangopay/';
+```
+
+<Warning>
+  The `TemporaryFolder` must be **writable** and **outside your web root** for security. Use different folders for sandbox and production environments.
+</Warning>
+
+For production, also set:
+
+```php
+$api->Config->BaseUrl = 'https://api.mangopay.com';
+```
+
+### Step 3: Create User Object
+
+```php
+use MangoPay\UserNatural;
+use MangoPay\Address;
+
+$user = new UserNatural();
+$user->FirstName = 'John';
+$user->LastName = 'Doe';
+$user->Email = 'john.doe@example.com';
+$user->Birthday = mktime(0, 0, 0, 12, 21, 1985);
+$user->Nationality = 'FR';
+$user->CountryOfResidence = 'FR';
+$user->TermsAndConditionsAccepted = true;
+```
+
+<Info>
+  **Birthday** must be a Unix timestamp. Use `mktime()` to create timestamps from dates.
+</Info>
+
+The SDK provides entity classes for all API resources:
+- `UserNatural` - Individual persons
+- `UserLegal` - Organizations
+- `Wallet` - User wallets
+- `PayIn`, `PayOut`, `Transfer` - Transactions
+
+### Step 4: Set Nested Objects
+
+```php
+$user->Address = new Address();
+$user->Address->AddressLine1 = '1 Mangopay Street';
+$user->Address->City = 'Paris';
+$user->Address->Country = 'FR';
+```
+
+Many entities have nested objects like `Address`, `Money`, or `BankAccountDetails`. Create these using their respective classes.
+
+### Step 5: Make API Calls
+
+```php
+$createdUser = $api->Users->Create($user);
+```
+
+API calls are made through manager properties:
+- `$api->Users` - User management
+- `$api->Wallets` - Wallet operations
+- `$api->PayIns` - Payment processing
+- `$api->Transfers` - Transfer operations
+
+Each manager provides standard CRUD methods where applicable:
+- `Create($object)` - Create a new resource
+- `Get($id)` - Retrieve by ID
+- `Update($object)` - Update existing resource
+- `GetAll($pagination)` - List resources
+
+### Step 6: Handle Errors
+
+```php
+try {
+    $user = $api->Users->Create($user);
+} catch (ResponseException $e) {
+    // API returned an error
+    echo $e->GetMessage();
+    echo $e->GetCode();
+    print_r($e->GetErrorDetails());
+} catch (Exception $e) {
+    // SDK or network error
+    echo $e->GetMessage();
+}
+```
+
+<Tip>
+  Always catch both `ResponseException` (API errors) and `Exception` (SDK/network errors) for robust error handling.
+</Tip>
+
+## Working with Pagination
+
+When retrieving lists of resources, use the `Pagination` class:
+
+```php
+use MangoPay\Pagination;
+
+// Get page 1 with 10 items per page
+$pagination = new Pagination(1, 10);
+
+try {
+    $users = $api->Users->GetAll($pagination);
+    
+    echo "Total users: " . $pagination->TotalItems . "\n";
+    echo "Total pages: " . $pagination->TotalPages . "\n";
+    
+    foreach ($users as $user) {
+        echo "User: " . $user->FirstName . " " . $user->LastName . "\n";
+    }
+    
+} catch (ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Updating Resources
+
+To update a resource, retrieve it, modify properties, and call the update method:
+
+```php
+try {
+    // Get the user
+    $user = $api->Users->Get($userId);
+    
+    // Modify properties
+    $user->LastName = 'Smith';
+    $user->Email = 'john.smith@example.com';
+    
+    // Update via API
+    $updatedUser = $api->Users->Update($user);
+    
+    echo "User updated successfully!\n";
+    
+} catch (ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Creating a Simple Payer User
+
+For users who only make payments (payers), you can create a simplified user:
+
+```php
+use MangoPay\UserCategory;
+
+$payer = new UserNatural();
+$payer->FirstName = 'Jane';
+$payer->LastName = 'Smith';
+$payer->Email = 'jane.smith@example.com';
+$payer->TermsAndConditionsAccepted = true;
+$payer->UserCategory = UserCategory::Payer;
+
+try {
+    $createdPayer = $api->Users->Create($payer);
+    echo "Payer created with ID: " . $createdPayer->Id . "\n";
+} catch (ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+<Info>
+  Payer users have simplified requirements compared to owner users, making onboarding faster for customers who only need to make payments.
+</Info>
+
+## Common SDK Patterns
+
+Here are patterns you'll use throughout the SDK:
+
+### 1. Using Constants
+
+The SDK provides constants for enumerated values:
+
+```php
+use MangoPay\PersonType;
+use MangoPay\LegalPersonType;
+use MangoPay\CurrencyIso;
+
+// Check user type
+if ($user->PersonType === PersonType::Natural) {
+    echo "Individual user";
+}
+
+// Use currency constants
+$money = new Money();
+$money->Currency = CurrencyIso::EUR;
+$money->Amount = 1000; // Amount in cents
+```
+
+### 2. Working with Timestamps
+
+API timestamps are Unix timestamps:
+
+```php
+// Create timestamp from date
+$user->Birthday = mktime(0, 0, 0, 12, 21, 1985);
+
+// Format timestamp for display
+echo date('Y-m-d', $user->Birthday);
+```
+
+### 3. Money Amounts
+
+All monetary amounts are in the smallest currency unit (cents for EUR/USD):
+
+```php
+use MangoPay\Money;
+
+$amount = new Money();
+$amount->Currency = 'EUR';
+$amount->Amount = 1000; // €10.00 (1000 cents)
+```
+
+## Next Steps
+
+Now that you've created your first user, explore more features:
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/configuration">
+    Learn about all configuration options and environment settings
+  </Card>
+  <Card title="Users" icon="user" href="/users">
+    Dive deeper into user management and KYC
+  </Card>
+  <Card title="Wallets" icon="wallet" href="/wallets">
+    Create and manage user wallets
+  </Card>
+  <Card title="Payments" icon="credit-card" href="/payments">
+    Process payments and handle transactions
+  </Card>
+</CardGroup>
+
+## Getting Help
+
+If you encounter issues:
+
+- Check the [API documentation](https://docs.mangopay.com) for endpoint details
+- Review error messages in `ResponseException` for specific issues
+- Report bugs on [GitHub](https://github.com/Mangopay/mangopay2-php-sdk/issues)
+- Ensure your temporary folder has write permissions

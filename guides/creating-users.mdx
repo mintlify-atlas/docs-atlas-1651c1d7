@@ -1,0 +1,257 @@
+---
+title: 'Creating Users'
+description: 'Learn how to create and manage natural and legal users in Mangopay'
+---
+
+## Overview
+
+Users are the foundation of your Mangopay integration. Every transaction, wallet, and bank account must be associated with a user. Mangopay supports two types of users:
+
+- **Natural Users**: Individual persons
+- **Legal Users**: Companies or organizations
+
+## Creating a Natural User
+
+Natural users represent individual people on your platform.
+
+<Steps>
+  <Step title="Initialize the API">
+    First, set up your Mangopay API instance with your credentials:
+    
+    ```php
+    require_once 'vendor/autoload.php';
+    
+    $api = new MangoPay\MangoPayApi();
+    $api->Config->ClientId = 'your-client-id';
+    $api->Config->ClientPassword = 'your-client-password';
+    $api->Config->TemporaryFolder = '/tmp/';
+    ```
+  </Step>
+
+  <Step title="Create the User Object">
+    Create a new `UserNatural` object with required information:
+    
+    ```php
+    $user = new MangoPay\UserNatural();
+    $user->FirstName = 'John';
+    $user->LastName = 'Doe';
+    $user->Email = 'john.doe@example.com';
+    $user->Birthday = 568080000; // Unix timestamp
+    $user->Nationality = 'US';
+    $user->CountryOfResidence = 'US';
+    ```
+  </Step>
+
+  <Step title="Add Address (Optional)">
+    Provide the user's address:
+    
+    ```php
+    $address = new MangoPay\Address();
+    $address->AddressLine1 = '123 Main Street';
+    $address->City = 'New York';
+    $address->Region = 'NY';
+    $address->PostalCode = '10001';
+    $address->Country = 'US';
+    
+    $user->Address = $address;
+    ```
+  </Step>
+
+  <Step title="Submit to API">
+    Create the user via the API:
+    
+    ```php
+    try {
+        $createdUser = $api->Users->Create($user);
+        echo "User created with ID: " . $createdUser->Id;
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        echo "Error: " . $e->GetMessage();
+    }
+    ```
+  </Step>
+</Steps>
+
+## Creating a Legal User
+
+Legal users represent businesses or organizations.
+
+```php
+$legalUser = new MangoPay\UserLegal();
+$legalUser->Name = 'Acme Corporation';
+$legalUser->Email = 'contact@acme.com';
+$legalUser->LegalPersonType = 'BUSINESS';
+$legalUser->LegalRepresentativeFirstName = 'Jane';
+$legalUser->LegalRepresentativeLastName = 'Smith';
+$legalUser->LegalRepresentativeBirthday = 568080000;
+$legalUser->LegalRepresentativeNationality = 'US';
+$legalUser->LegalRepresentativeCountryOfResidence = 'US';
+
+// Set headquarters address
+$hqAddress = new MangoPay\Address();
+$hqAddress->AddressLine1 = '456 Business Ave';
+$hqAddress->City = 'New York';
+$hqAddress->Region = 'NY';
+$hqAddress->PostalCode = '10002';
+$hqAddress->Country = 'US';
+$legalUser->HeadquartersAddress = $hqAddress;
+
+try {
+    $createdLegalUser = $api->Users->Create($legalUser);
+    echo "Legal user created with ID: " . $createdLegalUser->Id;
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Retrieving Users
+
+### Get a Specific User
+
+```php
+try {
+    $user = $api->Users->Get($userId);
+    echo "User: " . $user->FirstName . " " . $user->LastName;
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+### Get Natural User Specifically
+
+```php
+$naturalUser = $api->Users->GetNatural($userId);
+```
+
+### Get Legal User Specifically
+
+```php
+$legalUser = $api->Users->GetLegal($userId);
+```
+
+### List All Users
+
+```php
+$pagination = new MangoPay\Pagination(1, 10); // Page 1, 10 per page
+
+try {
+    $users = $api->Users->GetAll($pagination);
+    
+    foreach ($users as $user) {
+        echo "User ID: " . $user->Id . "\n";
+    }
+    
+    echo "Total users: " . $pagination->TotalItems;
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Updating Users
+
+You can update user information after creation:
+
+```php
+try {
+    // Get the user first
+    $user = $api->Users->Get($userId);
+    
+    // Update properties
+    $user->Email = 'newemail@example.com';
+    $user->Occupation = 'Software Engineer';
+    
+    // Save changes
+    $updatedUser = $api->Users->Update($user);
+    echo "User updated successfully";
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## User Categorization (SCA)
+
+For Strong Customer Authentication (SCA) compliance, you can categorize users:
+
+```php
+$user = $api->Users->GetNaturalSca($userId);
+$user->Capacity = MangoPay\NaturalUserCapacity::Owner;
+
+try {
+    $categorizedUser = $api->Users->Categorize($user);
+    echo "User categorized successfully";
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Closing Users
+
+When a user no longer needs access, you can close their account:
+
+```php
+$user = $api->Users->Get($userId);
+
+try {
+    $api->Users->Close($user);
+    echo "User account closed";
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+<Note>
+Closing a user account doesn't delete it. The resource remains available for historical purposes.
+</Note>
+
+## Error Handling
+
+Always wrap API calls in try-catch blocks to handle errors gracefully:
+
+```php
+try {
+    $user = $api->Users->Create($newUser);
+} catch (MangoPay\Libraries\ResponseException $e) {
+    // API returned an error response
+    $errorCode = $e->GetCode();
+    $errorMessage = $e->GetMessage();
+    $errorDetails = $e->GetErrorDetails();
+    
+    foreach ($errorDetails as $error) {
+        echo "Error: " . $error->Message;
+    }
+} catch (MangoPay\Libraries\Exception $e) {
+    // SDK error
+    echo "SDK Error: " . $e->GetMessage();
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Validate Input" icon="check">
+    Always validate user data before sending to the API to avoid unnecessary errors.
+  </Card>
+  
+  <Card title="Store User IDs" icon="database">
+    Save the returned user ID in your database for future API calls.
+  </Card>
+  
+  <Card title="Use Idempotency" icon="shield">
+    Pass an idempotency key for create operations to prevent duplicate users.
+  </Card>
+  
+  <Card title="Handle Errors" icon="triangle-exclamation">
+    Always implement proper error handling for API calls.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Managing Wallets" icon="wallet" href="/guides/managing-wallets">
+    Learn how to create wallets for your users
+  </Card>
+  
+  <Card title="KYC Documents" icon="file-contract" href="/guides/kyc-documents">
+    Upload verification documents for users
+  </Card>
+</CardGroup>

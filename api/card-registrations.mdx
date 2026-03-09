@@ -1,0 +1,220 @@
+---
+title: 'Card Registrations'
+description: 'Register new payment cards in Mangopay'
+icon: 'id-card'
+---
+
+The `ApiCardRegistrations` class provides methods to register new payment cards. Card registration is a multi-step process that securely collects card data.
+
+## Methods
+
+### Create
+
+Create a new card registration.
+
+```php
+public function Create($cardRegistration, $idempotencyKey = null)
+```
+
+<ParamField path="cardRegistration" type="\MangoPay\CardRegistration" required>
+  The CardRegistration object to create
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key for safe retries
+</ParamField>
+
+**Returns:** `\MangoPay\CardRegistration` - The created CardRegistration object with registration URL and data
+
+**Example:**
+
+```php
+$cardRegistration = new \MangoPay\CardRegistration();
+$cardRegistration->UserId = $userId;
+$cardRegistration->Currency = 'EUR';
+$cardRegistration->CardType = 'CB_VISA_MASTERCARD';
+
+$result = $api->CardRegistrations->Create($cardRegistration);
+
+// Use $result->CardRegistrationURL, $result->PreregistrationData, 
+// and $result->AccessKey to post card data from client-side
+```
+
+### Get
+
+Get a card registration by its ID.
+
+```php
+public function Get($cardRegistrationId)
+```
+
+<ParamField path="cardRegistrationId" type="string" required>
+  The unique identifier of the card registration
+</ParamField>
+
+**Returns:** `\MangoPay\CardRegistration` - The CardRegistration object
+
+**Example:**
+
+```php
+$cardRegistration = $api->CardRegistrations->Get('cardreg_123456');
+```
+
+### Update
+
+Update a card registration with registration data received from the tokenization server.
+
+```php
+public function Update($cardRegistration)
+```
+
+<ParamField path="cardRegistration" type="\MangoPay\CardRegistration" required>
+  The CardRegistration object to update (must include Id and RegistrationData)
+</ParamField>
+
+**Returns:** `\MangoPay\CardRegistration` - The updated CardRegistration object with CardId
+
+**Example:**
+
+```php
+$cardRegistration = $api->CardRegistrations->Get('cardreg_123456');
+$cardRegistration->RegistrationData = $dataFromTokenizationServer;
+
+$result = $api->CardRegistrations->Update($cardRegistration);
+
+// $result->CardId now contains the ID of the registered card
+$cardId = $result->CardId;
+```
+
+## CardRegistration Entity
+
+The `CardRegistration` entity manages the secure registration process for payment cards.
+
+### Properties
+
+<ResponseField name="Id" type="string">
+  The unique identifier of the card registration
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of when the card registration was created
+</ResponseField>
+
+<ResponseField name="Tag" type="string">
+  Custom data for your use
+</ResponseField>
+
+<ResponseField name="UserId" type="string" required>
+  The ID of the user registering the card
+</ResponseField>
+
+<ResponseField name="CardType" type="string" required>
+  The type of card: `CB_VISA_MASTERCARD`, `DINERS`, `MASTERPASS`, `MAESTRO`, `P24`, `IDEAL`, etc.
+</ResponseField>
+
+<ResponseField name="Currency" type="string" required>
+  The currency for card validation (ISO 4217 format)
+</ResponseField>
+
+<ResponseField name="AccessKey" type="string">
+  The access key for the tokenization server (read-only)
+</ResponseField>
+
+<ResponseField name="PreregistrationData" type="string">
+  The pre-registration data to send to the tokenization server (read-only)
+</ResponseField>
+
+<ResponseField name="CardRegistrationURL" type="string">
+  The URL to POST card data to for tokenization (read-only)
+</ResponseField>
+
+<ResponseField name="RegistrationData" type="string">
+  The registration data returned from the tokenization server (set this when updating)
+</ResponseField>
+
+<ResponseField name="CardId" type="string">
+  The ID of the registered card (available after successful update)
+</ResponseField>
+
+<ResponseField name="ResultCode" type="string">
+  The result code of the registration
+</ResponseField>
+
+<ResponseField name="ResultMessage" type="string">
+  The result message explaining the result code
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  The status of the card registration: `CREATED`, `VALIDATED`, `ERROR`
+</ResponseField>
+
+<ResponseField name="CardHolderName" type="string">
+  The cardholder's name as shown on the payment card
+</ResponseField>
+
+## Card Registration Flow
+
+The card registration process involves several steps:
+
+### Step 1: Create Card Registration
+
+```php
+// Server-side: Create a card registration
+$cardRegistration = new \MangoPay\CardRegistration();
+$cardRegistration->UserId = $userId;
+$cardRegistration->Currency = 'EUR';
+$cardRegistration->CardType = 'CB_VISA_MASTERCARD';
+
+$cardRegData = $api->CardRegistrations->Create($cardRegistration);
+
+// Send these to your client:
+// - $cardRegData->CardRegistrationURL
+// - $cardRegData->PreregistrationData  
+// - $cardRegData->AccessKey
+// - $cardRegData->Id
+```
+
+### Step 2: Tokenize Card Data (Client-side)
+
+```javascript
+// Client-side: Collect card data and POST to tokenization server
+const cardData = {
+    accessKeyRef: cardRegData.AccessKey,
+    data: cardRegData.PreregistrationData,
+    cardNumber: '4970100000000000',
+    cardExpirationDate: '1224',
+    cardCvx: '123'
+};
+
+// POST to cardRegData.CardRegistrationURL
+// Response will contain the RegistrationData
+```
+
+### Step 3: Complete Registration
+
+```php
+// Server-side: Update card registration with RegistrationData
+$cardRegistration = $api->CardRegistrations->Get($cardRegData->Id);
+$cardRegistration->RegistrationData = $registrationDataFromClient;
+
+$result = $api->CardRegistrations->Update($cardRegistration);
+
+if ($result->Status === 'VALIDATED') {
+    // Success! Card is now registered
+    $cardId = $result->CardId;
+    
+    // Use this card ID for payments
+    echo "Card registered with ID: " . $cardId;
+} else {
+    // Handle error
+    echo "Error: " . $result->ResultMessage;
+}
+```
+
+<Warning>
+  Never send raw card data (card number, CVV, expiration date) to your server. Always use the Mangopay tokenization server to securely collect and tokenize card information.
+</Warning>
+
+<Note>
+  After successful registration, you can use the `CardId` to create pay-ins or pre-authorizations without needing to collect card details again.
+</Note>

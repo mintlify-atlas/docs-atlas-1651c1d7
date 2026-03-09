@@ -1,0 +1,219 @@
+---
+title: 'Wallets'
+description: 'API methods for managing wallets in the Mangopay PHP SDK'
+---
+
+## Overview
+
+The `ApiWallets` class provides methods to create, retrieve, update wallets and manage wallet transactions. Wallets are used to store funds for users in your Mangopay platform.
+
+## Methods
+
+### Create
+
+Create a new wallet.
+
+```php
+public function Create($wallet, $idempotencyKey = null)
+```
+
+<ParamField path="wallet" type="Wallet" required>
+  The wallet object to create
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key to prevent duplicate requests
+</ParamField>
+
+**Returns:** `Wallet` - The created wallet object
+
+**Example:**
+
+```php
+$api = new MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$wallet = new MangoPay\Wallet();
+$wallet->Owners = ['user_id_123'];
+$wallet->Description = 'Main wallet';
+$wallet->Currency = 'EUR';
+
+$createdWallet = $api->Wallets->Create($wallet);
+echo $createdWallet->Id;
+```
+
+---
+
+### Get
+
+Retrieve a wallet by its ID.
+
+```php
+public function Get($walletId, $scaContext = null)
+```
+
+<ParamField path="walletId" type="string" required>
+  The wallet identifier
+</ParamField>
+
+<ParamField path="scaContext" type="string">
+  Optional. Strong Customer Authentication context. Possible values:
+  - `USER_NOT_PRESENT` - User is not present during the operation
+  - `USER_PRESENT` - User is present during the operation
+  
+  When `USER_PRESENT` is used and SCA is required, an error containing the `RedirectUrl` will be thrown
+</ParamField>
+
+**Returns:** `Wallet` - The wallet object
+
+**Example:**
+
+```php
+$api = new MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$wallet = $api->Wallets->Get('wallet_id_123');
+echo $wallet->Description;
+echo $wallet->Balance->Amount;
+
+// With SCA context
+try {
+    $wallet = $api->Wallets->Get('wallet_id_123', 'USER_PRESENT');
+} catch (Exception $e) {
+    // Handle SCA redirect if needed
+}
+```
+
+---
+
+### Update
+
+Update an existing wallet.
+
+```php
+public function Update($wallet)
+```
+
+<ParamField path="wallet" type="Wallet" required>
+  The wallet object to update (must have an Id)
+</ParamField>
+
+**Returns:** `Wallet` - The updated wallet object
+
+**Example:**
+
+```php
+$api = new MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$wallet = $api->Wallets->Get('wallet_id_123');
+$wallet->Description = 'Updated wallet description';
+
+$updatedWallet = $api->Wallets->Update($wallet);
+echo $updatedWallet->Description;
+```
+
+---
+
+### GetTransactions
+
+Retrieve all transactions for a specific wallet.
+
+```php
+public function GetTransactions($walletId, & $pagination = null, $filter = null, $sorting = null)
+```
+
+<ParamField path="walletId" type="string" required>
+  The wallet identifier
+</ParamField>
+
+<ParamField path="pagination" type="Pagination">
+  Pagination object to control page size and number
+</ParamField>
+
+<ParamField path="filter" type="FilterTransactions">
+  Filter object to filter transactions by specific criteria
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting object to sort the results
+</ParamField>
+
+**Returns:** `Transaction[]` - Array of transaction objects
+
+**Example:**
+
+```php
+$api = new MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$pagination = new MangoPay\Pagination(1, 10);
+$transactions = $api->Wallets->GetTransactions('wallet_id_123', $pagination);
+
+foreach ($transactions as $transaction) {
+    echo $transaction->Id . ' - ' . $transaction->Status;
+}
+
+echo 'Total pages: ' . $pagination->TotalPages;
+```
+
+---
+
+## Wallet Entity
+
+The `Wallet` class represents a wallet entity with the following properties:
+
+### Properties
+
+<ResponseField name="Id" type="string">
+  Unique identifier for the wallet (read-only)
+</ResponseField>
+
+<ResponseField name="Tag" type="string">
+  Custom data for the wallet
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of when the wallet was created (read-only)
+</ResponseField>
+
+<ResponseField name="Owners" type="array">
+  Array of user IDs who own this wallet
+</ResponseField>
+
+<ResponseField name="Description" type="string">
+  Description of the wallet
+</ResponseField>
+
+<ResponseField name="Balance" type="Money">
+  Current balance in the wallet (read-only)
+  
+  Contains:
+  - `Amount` (int): The amount in the wallet's smallest currency unit (e.g., cents)
+  - `Currency` (string): ISO 4217 currency code (e.g., "EUR", "USD")
+</ResponseField>
+
+<ResponseField name="Currency" type="string">
+  ISO 4217 currency code for the wallet (e.g., "EUR", "USD", "GBP")
+</ResponseField>
+
+### Example Object
+
+```php
+$wallet = new MangoPay\Wallet();
+$wallet->Owners = ['user_123', 'user_456'];
+$wallet->Description = 'Company main wallet';
+$wallet->Currency = 'EUR';
+$wallet->Tag = 'department:finance';
+```
+
+### Read-Only Properties
+
+The following properties are read-only and cannot be modified:
+- `Id`
+- `CreationDate`
+- `Balance`

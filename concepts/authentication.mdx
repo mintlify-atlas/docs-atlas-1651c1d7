@@ -1,0 +1,169 @@
+---
+title: 'Authentication'
+description: 'Learn how to authenticate with the Mangopay API using OAuth 2.0'
+icon: 'key'
+---
+
+## Overview
+
+The Mangopay PHP SDK uses OAuth 2.0 authentication to secure API requests. The SDK automatically manages authentication tokens, including creation, storage, and renewal.
+
+## Authentication Flow
+
+The SDK handles authentication through two main components:
+
+1. **AuthorizationTokenManager** - Manages token lifecycle
+2. **AuthenticationManager** - Creates OAuth tokens
+
+### Token Management
+
+Tokens are automatically managed by the SDK. When you make an API request:
+
+1. The SDK checks if a valid token exists
+2. If the token is expired or missing, a new one is created
+3. The token is stored using the configured storage strategy
+4. All subsequent requests use the stored token
+
+<Info>
+Tokens are cached and automatically renewed when they expire, so you don't need to manage them manually.
+</Info>
+
+## Configuration
+
+Set up authentication when initializing the SDK:
+
+```php
+use MangoPay\MangoPayApi;
+
+$api = new MangoPayApi();
+
+// Set your API credentials
+$api->Config->ClientId = 'your_client_id';
+$api->Config->ClientPassword = 'your_client_password';
+
+// Set the environment
+$api->Config->BaseUrl = 'https://api.sandbox.mangopay.com'; // Sandbox
+// $api->Config->BaseUrl = 'https://api.mangopay.com'; // Production
+```
+
+### Environment URLs
+
+<CardGroup cols={2}>
+  <Card title="Sandbox" icon="flask">
+    `https://api.sandbox.mangopay.com`
+    
+    Use for testing and development
+  </Card>
+  <Card title="Production" icon="rocket">
+    `https://api.mangopay.com`
+    
+    Use for live transactions
+  </Card>
+</CardGroup>
+
+## Custom Token Storage
+
+By default, tokens are stored in temporary files. You can implement custom storage by creating a class that implements `IStorageStrategy`:
+
+```php
+use MangoPay\Libraries\IStorageStrategy;
+use MangoPay\Libraries\OAuthToken;
+
+class CustomStorageStrategy implements IStorageStrategy
+{
+    public function Get()
+    {
+        // Retrieve token from your storage (database, cache, etc.)
+        // Return OAuthToken or null
+    }
+
+    public function Store($token)
+    {
+        // Save token to your storage
+    }
+}
+```
+
+Register your custom storage strategy:
+
+```php
+$api = new MangoPayApi();
+$api->OAuthTokenManager->RegisterCustomStorageStrategy(new CustomStorageStrategy());
+```
+
+## Token Information
+
+The OAuth token contains:
+
+- **access_token** - The authentication token
+- **token_type** - Always "Bearer"
+- **expires_in** - Token lifetime in seconds
+
+Reference: ~/workspace/source/MangoPay/Libraries/AuthorizationTokenManager.php:29
+
+## Connection Timeouts
+
+You can configure connection and response timeouts:
+
+```php
+$api->Config->CurlConnectionTimeout = 30; // Connection timeout in seconds
+$api->Config->CurlResponseTimeout = 30;   // Response timeout in seconds
+```
+
+Reference: ~/workspace/source/MangoPay/Libraries/Configuration.php:56
+
+## Proxy Configuration
+
+If you need to use a proxy:
+
+```php
+$api->Config->HostProxy = 'proxy.example.com:8080';
+$api->Config->UserPasswordProxy = 'username:password';
+```
+
+<Warning>
+Never commit your `ClientPassword` to version control. Use environment variables or secure configuration management.
+</Warning>
+
+## SSL Certificate Verification
+
+For production environments, you can specify a custom CA certificate bundle:
+
+```php
+$api->Config->CertificatesFilePath = '/path/to/cacert.pem';
+```
+
+Leave empty to skip certificate verification (not recommended for production).
+
+Reference: ~/workspace/source/MangoPay/Libraries/Configuration.php:39
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Store credentials securely">
+    Never hardcode credentials in your source code. Use environment variables or secure configuration files that are not committed to version control.
+  </Accordion>
+  
+  <Accordion title="Use different credentials for environments">
+    Maintain separate API credentials for sandbox and production environments.
+  </Accordion>
+  
+  <Accordion title="Implement custom storage for production">
+    The default file-based token storage is suitable for development, but consider using a database or cache system for production.
+  </Accordion>
+  
+  <Accordion title="Monitor token errors">
+    Implement logging to track authentication failures and token renewal issues.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Users" icon="users" href="/concepts/users">
+    Learn about user management
+  </Card>
+  <Card title="Wallets" icon="wallet" href="/concepts/wallets">
+    Understand wallet operations
+  </Card>
+</CardGroup>

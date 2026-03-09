@@ -1,0 +1,401 @@
+---
+title: "ApiReportsV2"
+description: "Enhanced API methods for generating reports (2025 Reporting Service)"
+---
+
+## Overview
+
+The `ApiReportsV2` class provides methods for the enhanced Reporting Service introduced in 2025. This API offers improved reporting capabilities with more flexible filtering and export options.
+
+<Info>
+This is the current recommended reporting API. It replaces the legacy [ApiReports](/api/reports) with enhanced features and better performance.
+</Info>
+
+## Methods
+
+### Create
+
+Generate a new report.
+
+```php
+public function Create(Report $report, ?string $idempotencyKey = null): Report
+```
+
+<ParamField path="report" type="Report" required>
+  Report object with type and filter parameters
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Idempotency key for request replication
+</ParamField>
+
+**Returns:** `Report` object
+
+**Example:**
+
+```php
+$report = new MangoPay\Report();
+$report->ReportType = 'TRANSACTIONS';
+$report->Columns = ['Id', 'CreationDate', 'Status', 'DebitedFunds', 'CreditedFunds'];
+$report->Filters = [
+    'Status' => ['SUCCEEDED'],
+    'AfterDate' => strtotime('-30 days'),
+    'BeforeDate' => time()
+];
+$report->CallbackURL = 'https://yoursite.com/reports/callback';
+$report->Tag = 'Transactions Last 30 Days';
+
+$createdReport = $api->ReportsV2->Create($report);
+echo "Report ID: " . $createdReport->Id . "\n";
+```
+
+### Get
+
+Retrieve a report.
+
+```php
+public function Get(string $reportId): Report
+```
+
+<ParamField path="reportId" type="string" required>
+  Report identifier
+</ParamField>
+
+**Returns:** `Report` object
+
+**Example:**
+
+```php
+$report = $api->ReportsV2->Get($reportId);
+
+if ($report->Status === 'READY') {
+    echo "Download URL: " . $report->DownloadURL . "\n";
+    echo "Format: " . $report->DownloadFormat . "\n";
+    echo "File size: " . $report->ResultFileSize . " bytes\n";
+    
+    // Download the report
+    $content = file_get_contents($report->DownloadURL);
+    file_put_contents('report_' . $reportId . '.csv', $content);
+}
+```
+
+### GetAll
+
+Retrieve all reports.
+
+```php
+public function GetAll(?FilterReportsV2 $filter = null, ?Pagination $pagination = null, ?Sorting $sorting = null): array
+```
+
+<ParamField path="filter" type="FilterReportsV2">
+  Filter reports by status, type, etc.
+</ParamField>
+
+<ParamField path="pagination" type="Pagination">
+  Pagination parameters
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting parameters
+</ParamField>
+
+**Returns:** Array of `Report` objects
+
+**Example:**
+
+```php
+$filter = new MangoPay\FilterReportsV2();
+$filter->Status = 'READY';
+$filter->ReportType = 'TRANSACTIONS';
+
+$pagination = new MangoPay\Pagination(1, 20);
+$reports = $api->ReportsV2->GetAll($filter, $pagination);
+
+foreach ($reports as $report) {
+    echo "Report {$report->Id}: {$report->Tag} ({$report->Status})\n";
+}
+```
+
+## Report Entity
+
+<ResponseField name="Id" type="string">
+  Unique identifier
+</ResponseField>
+
+<ResponseField name="ReportType" type="string">
+  Type of report (TRANSACTIONS, WALLETS, etc.)
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  Report status (PENDING, PROCESSING, READY, FAILED)
+</ResponseField>
+
+<ResponseField name="Columns" type="array">
+  List of columns to include in the report
+</ResponseField>
+
+<ResponseField name="Filters" type="array">
+  Filter criteria applied to the report
+</ResponseField>
+
+<ResponseField name="DownloadURL" type="string">
+  URL to download the generated report (available when Status is READY)
+</ResponseField>
+
+<ResponseField name="DownloadFormat" type="string">
+  Format of the report (CSV, JSON)
+</ResponseField>
+
+<ResponseField name="CallbackURL" type="string">
+  Webhook URL for completion notification
+</ResponseField>
+
+<ResponseField name="ResultFileSize" type="int">
+  Size of the generated file in bytes
+</ResponseField>
+
+<ResponseField name="ResultCode" type="string">
+  Result code if the report failed
+</ResponseField>
+
+<ResponseField name="ResultMessage" type="string">
+  Human-readable result message
+</ResponseField>
+
+<ResponseField name="Tag" type="string">
+  Custom tag for your reference
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of creation
+</ResponseField>
+
+## Available Report Types
+
+### TRANSACTIONS Report
+
+Export transaction data with customizable columns.
+
+**Available Columns:**
+- `Id` - Transaction ID
+- `CreationDate` - Creation timestamp
+- `ExecutionDate` - Execution timestamp
+- `Type` - Transaction type (PAYIN, PAYOUT, TRANSFER)
+- `Nature` - Transaction nature (REGULAR, REFUND, REPUDIATION)
+- `Status` - Transaction status
+- `AuthorId` - User who initiated the transaction
+- `DebitedWalletId` - Source wallet
+- `CreditedWalletId` - Destination wallet
+- `DebitedFunds` - Debited amount and currency
+- `CreditedFunds` - Credited amount and currency
+- `Fees` - Fee amount and currency
+- `ResultCode` - Result code
+- `ResultMessage` - Result message
+- `Tag` - Custom tag
+
+**Available Filters:**
+- `Status` - Filter by status (array)
+- `Type` - Filter by type (array)
+- `Nature` - Filter by nature (array)
+- `AfterDate` - Unix timestamp
+- `BeforeDate` - Unix timestamp
+- `AuthorId` - User ID
+- `WalletId` - Wallet ID
+
+### WALLETS Report
+
+Export wallet data with balances.
+
+**Available Columns:**
+- `Id` - Wallet ID
+- `Owners` - Owner user IDs
+- `Description` - Wallet description
+- `Currency` - Wallet currency
+- `Balance` - Current balance
+- `CreationDate` - Creation timestamp
+- `Tag` - Custom tag
+
+**Available Filters:**
+- `Currency` - Filter by currency
+- `OwnerId` - Filter by owner
+- `AfterDate` - Created after date
+- `BeforeDate` - Created before date
+- `MinBalance` - Minimum balance (in cents)
+- `MaxBalance` - Maximum balance (in cents)
+
+## Complete Example: Custom Transaction Report
+
+```php
+// Create a detailed transaction report for last month
+$report = new MangoPay\Report();
+$report->ReportType = 'TRANSACTIONS';
+$report->DownloadFormat = 'CSV';
+$report->CallbackURL = 'https://yoursite.com/reports/webhook';
+$report->Tag = 'Transaction Report - ' . date('F Y', strtotime('last month'));
+
+// Select specific columns
+$report->Columns = [
+    'Id',
+    'CreationDate',
+    'Type',
+    'Status',
+    'AuthorId',
+    'DebitedFunds',
+    'CreditedFunds',
+    'Fees',
+    'ResultCode',
+    'Tag'
+];
+
+// Apply filters
+$report->Filters = [
+    'AfterDate' => strtotime('first day of last month'),
+    'BeforeDate' => strtotime('last day of last month'),
+    'Status' => ['SUCCEEDED'],
+    'Type' => ['PAYIN', 'PAYOUT']
+];
+
+$createdReport = $api->ReportsV2->Create($report);
+
+echo "Report created: {$createdReport->Id}\n";
+echo "Status: {$createdReport->Status}\n";
+
+// Poll for completion
+do {
+    sleep(10);
+    $report = $api->ReportsV2->Get($createdReport->Id);
+    echo "Status: {$report->Status}...\n";
+} while (!in_array($report->Status, ['READY', 'FAILED']));
+
+if ($report->Status === 'READY') {
+    // Download the report
+    $csvContent = file_get_contents($report->DownloadURL);
+    file_put_contents('transactions_report.csv', $csvContent);
+    echo "Report downloaded ({$report->ResultFileSize} bytes)\n";
+} else {
+    echo "Report failed: {$report->ResultMessage}\n";
+}
+```
+
+## Wallet Balance Report Example
+
+```php
+// Generate wallet balance snapshot
+$report = new MangoPay\Report();
+$report->ReportType = 'WALLETS';
+$report->DownloadFormat = 'CSV';
+$report->Tag = 'Wallet Balances - ' . date('Y-m-d');
+
+$report->Columns = [
+    'Id',
+    'Owners',
+    'Currency',
+    'Balance',
+    'Description',
+    'Tag'
+];
+
+$report->Filters = [
+    'Currency' => 'EUR',
+    'MinBalance' => 100 // Only wallets with at least €1.00
+];
+
+$report->CallbackURL = 'https://yoursite.com/reports/webhook';
+
+$createdReport = $api->ReportsV2->Create($report);
+```
+
+## Webhook Integration
+
+```php
+// Handle report completion webhook
+$payload = file_get_contents('php://input');
+$data = json_decode($payload, true);
+
+if ($data['EventType'] === 'REPORT_READY') {
+    $reportId = $data['RessourceId'];
+    
+    $report = $api->ReportsV2->Get($reportId);
+    
+    if ($report->Status === 'READY') {
+        // Download immediately (URLs may expire)
+        $content = file_get_contents($report->DownloadURL);
+        
+        // Store in your system
+        $filename = 'reports/' . $report->Tag . '_' . $reportId . '.csv';
+        file_put_contents($filename, $content);
+        
+        // Process the report
+        processReport($filename, $report);
+        
+        // Notify admin
+        sendEmail('admin@yoursite.com', 'Report Ready', 
+                  "Report {$report->Tag} is ready: {$filename}");
+    }
+}
+
+http_response_code(200);
+```
+
+## Scheduled Reporting System
+
+```php
+class ReportScheduler {
+    private $api;
+    
+    public function __construct($api) {
+        $this->api = $api;
+    }
+    
+    public function generateDailyReport() {
+        $report = new MangoPay\Report();
+        $report->ReportType = 'TRANSACTIONS';
+        $report->Tag = 'Daily Report - ' . date('Y-m-d');
+        $report->Columns = ['Id', 'CreationDate', 'Type', 'Status', 'DebitedFunds'];
+        $report->Filters = [
+            'AfterDate' => strtotime('yesterday'),
+            'BeforeDate' => strtotime('today'),
+            'Status' => ['SUCCEEDED']
+        ];
+        $report->CallbackURL = 'https://yoursite.com/reports/webhook';
+        
+        return $this->api->ReportsV2->Create($report);
+    }
+    
+    public function generateWeeklyReport() {
+        $report = new MangoPay\Report();
+        $report->ReportType = 'TRANSACTIONS';
+        $report->Tag = 'Weekly Report - Week ' . date('W');
+        $report->Columns = ['Id', 'CreationDate', 'Type', 'Status', 'DebitedFunds', 'Fees'];
+        $report->Filters = [
+            'AfterDate' => strtotime('monday last week'),
+            'BeforeDate' => strtotime('sunday last week'),
+            'Status' => ['SUCCEEDED']
+        ];
+        $report->CallbackURL = 'https://yoursite.com/reports/webhook';
+        
+        return $this->api->ReportsV2->Create($report);
+    }
+}
+
+// Run via cron
+$scheduler = new ReportScheduler($api);
+$dailyReport = $scheduler->generateDailyReport();
+echo "Daily report queued: {$dailyReport->Id}\n";
+```
+
+<Tip>
+**Best Practices:**
+- Always specify only the columns you need to reduce file size
+- Use webhooks instead of polling for large reports
+- Download and store reports immediately as URLs may expire
+- Apply date filters to keep report sizes manageable
+- Use meaningful tags for easy identification
+</Tip>
+
+## See Also
+
+- [Reports (Legacy) API](/api/reports)
+- [Transactions](/api/transfers)
+- [Wallets API](/api/wallets)
+- [Webhooks Guide](/guides/webhooks)

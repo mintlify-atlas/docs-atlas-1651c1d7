@@ -1,0 +1,281 @@
+---
+title: "Disputes"
+description: "Handle chargebacks and disputes in your Mangopay integration"
+icon: "shield-exclamation"
+---
+
+## Overview
+
+Disputes occur when a user contests a transaction with their bank. The Mangopay PHP SDK provides comprehensive tools to manage disputes, submit documentation, and handle settlement transfers.
+
+<Warning>
+  Disputes cannot be created programmatically - they are initiated by users through their banks. Your integration should be prepared to handle disputes as they occur.
+</Warning>
+
+## Getting a Dispute
+
+Retrieve details of a specific dispute:
+
+```php
+$disputeId = 'dispute_123456';
+$dispute = $api->Disputes->Get($disputeId);
+
+echo "Dispute Status: " . $dispute->Status;
+echo "Dispute Type: " . $dispute->DisputeType;
+```
+
+## Listing Disputes
+
+Get all disputes with optional pagination, sorting, and filtering:
+
+```php
+use MangoPay\Pagination;
+use MangoPay\Sorting;
+use MangoPay\FilterDisputes;
+use MangoPay\SortDirection;
+
+$pagination = new Pagination(1, 20);
+$sorting = new Sorting();
+$sorting->AddField("CreationDate", SortDirection::DESC);
+
+$filter = new FilterDisputes();
+$disputes = $api->Disputes->GetAll($pagination, $sorting, $filter);
+
+foreach ($disputes as $dispute) {
+    echo "Dispute ID: " . $dispute->Id . "\n";
+}
+```
+
+## Getting Disputes by Context
+
+Retrieve disputes for specific users, wallets, or pay-ins:
+
+```php
+// Get disputes for a specific user
+$userId = 'user_123456';
+$userDisputes = $api->Disputes->GetDisputesForUser($userId, $pagination);
+
+// Get disputes for a wallet
+$walletId = 'wallet_123456';
+$walletDisputes = $api->Disputes->GetDisputesForWallet($walletId, $pagination);
+
+// Get disputes for a pay-in
+$payInId = 'payin_123456';
+$payInDisputes = $api->Disputes->GetDisputesForPayIn($payInId, $pagination);
+```
+
+## Contesting a Dispute
+
+Submit a dispute contestation with optional contested funds:
+
+```php
+use MangoPay\Money;
+
+$disputeId = 'dispute_123456';
+
+// Define contested funds
+$contestedFunds = new Money();
+$contestedFunds->Amount = 1000; // Amount in cents
+$contestedFunds->Currency = "EUR";
+
+$result = $api->Disputes->ContestDispute($disputeId, $contestedFunds);
+
+if ($result->Status == \MangoPay\DisputeStatus::Submitted) {
+    echo "Dispute successfully contested";
+}
+```
+
+## Managing Dispute Documents
+
+### Creating a Dispute Document
+
+```php
+use MangoPay\DisputeDocument;
+use MangoPay\DisputeDocumentType;
+
+$disputeId = 'dispute_123456';
+
+$document = new DisputeDocument();
+$document->Type = DisputeDocumentType::DeliveryProof;
+
+$createdDocument = $api->Disputes->CreateDisputeDocument($disputeId, $document);
+```
+
+### Uploading Document Pages
+
+Upload pages to a dispute document from a file:
+
+```php
+$disputeId = 'dispute_123456';
+$documentId = $createdDocument->Id;
+$filePath = '/path/to/document.pdf';
+
+$api->Disputes->CreateDisputeDocumentPageFromFile(
+    $disputeId,
+    $documentId,
+    $filePath
+);
+```
+
+Or upload from base64-encoded content:
+
+```php
+use MangoPay\DisputeDocumentPage;
+
+$page = new DisputeDocumentPage();
+$page->File = base64_encode(file_get_contents($filePath));
+
+$api->Disputes->CreateDisputeDocumentPage($disputeId, $documentId, $page);
+```
+
+### Submitting a Document
+
+Once all pages are uploaded, submit the document for validation:
+
+```php
+use MangoPay\DisputeDocumentStatus;
+
+$document->Status = DisputeDocumentStatus::ValidationAsked;
+$api->Disputes->UpdateDisputeDocument($disputeId, $document);
+```
+
+## Resubmitting a Dispute
+
+If a dispute is reopened and requires more documentation:
+
+```php
+$disputeId = 'dispute_123456';
+$result = $api->Disputes->ResubmitDispute($disputeId);
+
+if ($result->Status == \MangoPay\DisputeStatus::Submitted) {
+    echo "Dispute resubmitted successfully";
+}
+```
+
+## Closing a Dispute
+
+Close a dispute if you choose not to contest it:
+
+```php
+$disputeId = 'dispute_123456';
+$result = $api->Disputes->CloseDispute($disputeId);
+
+if ($result->Status == \MangoPay\DisputeStatus::Closed) {
+    echo "Dispute closed";
+}
+```
+
+## Updating Dispute Tag
+
+Update the tag for organization purposes:
+
+```php
+use MangoPay\Dispute;
+
+$dispute = new Dispute();
+$dispute->Id = 'dispute_123456';
+$dispute->Tag = "January-2026-Disputes";
+
+$updated = $api->Disputes->Update($dispute);
+```
+
+## Getting Dispute Transactions
+
+Retrieve all transactions related to a dispute:
+
+```php
+$disputeId = 'dispute_123456';
+$pagination = new Pagination(1, 10);
+
+$transactions = $api->Disputes->GetTransactions($disputeId, $pagination);
+
+foreach ($transactions as $transaction) {
+    echo "Transaction: " . $transaction->Id . "\n";
+}
+```
+
+## Handling Repudiations
+
+A repudiation is created when funds are returned to the user:
+
+```php
+// Get repudiation details
+$repudiationId = 'repudiation_123456';
+$repudiation = $api->Disputes->GetRepudiation($repudiationId);
+
+echo "Repudiation Amount: " . $repudiation->DebitedFunds->Amount;
+```
+
+### Creating Settlement Transfers
+
+After a dispute is closed, you may need to create a settlement transfer:
+
+```php
+use MangoPay\SettlementTransfer;
+use MangoPay\Money;
+
+$repudiationId = 'repudiation_123456';
+$repudiation = $api->Disputes->GetRepudiation($repudiationId);
+
+$settlementTransfer = new SettlementTransfer();
+$settlementTransfer->AuthorId = $repudiation->AuthorId;
+
+$settlementTransfer->DebitedFunds = new Money();
+$settlementTransfer->DebitedFunds->Amount = 100;
+$settlementTransfer->DebitedFunds->Currency = "EUR";
+
+$settlementTransfer->Fees = new Money();
+$settlementTransfer->Fees->Amount = 0;
+$settlementTransfer->Fees->Currency = "EUR";
+
+$transfer = $api->Disputes->CreateSettlementTransfer(
+    $settlementTransfer,
+    $repudiationId
+);
+```
+
+## Dispute Types
+
+The SDK supports three dispute types:
+
+- `DisputeType::Contestable` - Can be contested with evidence
+- `DisputeType::NotContestable` - Cannot be contested
+- `DisputeType::Retrieval` - Information request from the bank
+
+## Dispute Statuses
+
+Disputes progress through various statuses:
+
+- `CREATED` - Dispute initiated
+- `PENDING_CLIENT_ACTION` - Requires your action
+- `SUBMITTED` - Evidence submitted
+- `REOPENED_PENDING_CLIENT_ACTION` - Requires additional evidence
+- `CLOSED` - Dispute closed
+- `WON` - Dispute won
+- `LOST` - Dispute lost
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Act Quickly" icon="clock">
+    Respond to disputes promptly - you typically have limited time to submit evidence.
+  </Card>
+  
+  <Card title="Complete Documentation" icon="file-lines">
+    Provide comprehensive evidence including delivery proof, communication logs, and transaction details.
+  </Card>
+  
+  <Card title="Monitor Status" icon="eye">
+    Regularly check dispute statuses and set up webhooks to receive real-time updates.
+  </Card>
+  
+  <Card title="Handle Repudiations" icon="money-bill-transfer">
+    Properly process repudiations and settlement transfers to maintain accurate accounting.
+  </Card>
+</CardGroup>
+
+## Related Resources
+
+<Card title="Webhooks" icon="webhook" href="/api-reference/hooks">
+  Set up webhooks to receive real-time dispute notifications
+</Card>

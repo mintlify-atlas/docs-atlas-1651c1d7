@@ -1,0 +1,432 @@
+---
+title: 'Processing Pay-ins'
+description: 'Accept payments and add funds to user wallets'
+---
+
+## Overview
+
+Pay-ins are transactions that credit funds to a user's wallet. Mangopay supports multiple payment methods:
+
+- Card payments (direct and web)
+- Bank wire
+- Direct debit
+- PayPal
+- Google Pay
+- Alternative payment methods (Payconiq, Klarna, iDEAL, etc.)
+
+## Pay-in Structure
+
+Every pay-in consists of:
+- **Payment Type**: How the user pays (card, bank wire, etc.)
+- **Execution Type**: How the payment is processed (web, direct, etc.)
+- **Payment Details**: Specific to the payment type
+- **Execution Details**: Specific to the execution type
+
+## Card Direct Pay-in
+
+Process a card payment directly using card details:
+
+<Steps>
+  <Step title="Register the Card">
+    First, register the card using card registration:
+    
+    ```php
+    $cardRegistration = new MangoPay\CardRegistration();
+    $cardRegistration->UserId = $userId;
+    $cardRegistration->Currency = 'EUR';
+    $cardRegistration->CardType = 'CB_VISA_MASTERCARD';
+    
+    $createdCardReg = $api->CardRegistrations->Create($cardRegistration);
+    
+    // Send cardRegistration data to your frontend
+    // to collect card details securely
+    ```
+  </Step>
+
+  <Step title="Update Card Registration">
+    After collecting card data on the frontend:
+    
+    ```php
+    $cardRegistration = $api->CardRegistrations->Get($cardRegistrationId);
+    $cardRegistration->RegistrationData = $registrationData;
+    
+    $updatedCardReg = $api->CardRegistrations->Update($cardRegistration);
+    $cardId = $updatedCardReg->CardId;
+    ```
+  </Step>
+
+  <Step title="Create the Pay-in">
+    Process the payment:
+    
+    ```php
+    $payIn = new MangoPay\PayIn();
+    $payIn->AuthorId = $userId;
+    $payIn->CreditedUserId = $userId;
+    $payIn->CreditedWalletId = $walletId;
+    $payIn->DebitedFunds = new MangoPay\Money();
+    $payIn->DebitedFunds->Currency = 'EUR';
+    $payIn->DebitedFunds->Amount = 10000; // 100.00 EUR
+    $payIn->Fees = new MangoPay\Money();
+    $payIn->Fees->Currency = 'EUR';
+    $payIn->Fees->Amount = 100; // 1.00 EUR fee
+    
+    // Payment details
+    $payIn->PaymentType = 'CARD';
+    $payIn->PaymentDetails = new MangoPay\PayInPaymentDetailsCard();
+    $payIn->PaymentDetails->CardType = 'CB_VISA_MASTERCARD';
+    
+    // Execution details
+    $payIn->ExecutionType = 'DIRECT';
+    $payIn->ExecutionDetails = new MangoPay\PayInExecutionDetailsDirect();
+    $payIn->ExecutionDetails->CardId = $cardId;
+    $payIn->ExecutionDetails->SecureModeReturnURL = 'https://your-site.com/return';
+    
+    try {
+        $createdPayIn = $api->PayIns->Create($payIn);
+        
+        if ($createdPayIn->Status === 'SUCCEEDED') {
+            echo "Payment successful!";
+        } elseif ($createdPayIn->Status === 'FAILED') {
+            echo "Payment failed: " . $createdPayIn->ResultMessage;
+        }
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        echo "Error: " . $e->GetMessage();
+    }
+    ```
+  </Step>
+</Steps>
+
+## Card Web Pay-in
+
+Redirect users to a secure payment page:
+
+```php
+$payIn = new MangoPay\PayIn();
+$payIn->AuthorId = $userId;
+$payIn->CreditedUserId = $userId;
+$payIn->CreditedWalletId = $walletId;
+$payIn->DebitedFunds = new MangoPay\Money();
+$payIn->DebitedFunds->Currency = 'EUR';
+$payIn->DebitedFunds->Amount = 10000;
+$payIn->Fees = new MangoPay\Money();
+$payIn->Fees->Currency = 'EUR';
+$payIn->Fees->Amount = 100;
+
+// Payment details
+$payIn->PaymentType = 'CARD';
+$payIn->PaymentDetails = new MangoPay\PayInPaymentDetailsCard();
+$payIn->PaymentDetails->CardType = 'CB_VISA_MASTERCARD';
+
+// Execution details
+$payIn->ExecutionType = 'WEB';
+$payIn->ExecutionDetails = new MangoPay\PayInExecutionDetailsWeb();
+$payIn->ExecutionDetails->ReturnURL = 'https://your-site.com/return';
+$payIn->ExecutionDetails->Culture = 'EN';
+
+try {
+    $createdPayIn = $api->PayIns->Create($payIn);
+    
+    // Redirect user to payment page
+    header('Location: ' . $createdPayIn->ExecutionDetails->RedirectURL);
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Bank Wire Pay-in
+
+Accept payments via bank transfer:
+
+```php
+$payIn = new MangoPay\PayIn();
+$payIn->AuthorId = $userId;
+$payIn->CreditedUserId = $userId;
+$payIn->CreditedWalletId = $walletId;
+$payIn->DeclaredDebitedFunds = new MangoPay\Money();
+$payIn->DeclaredDebitedFunds->Currency = 'EUR';
+$payIn->DeclaredDebitedFunds->Amount = 10000;
+$payIn->DeclaredFees = new MangoPay\Money();
+$payIn->DeclaredFees->Currency = 'EUR';
+$payIn->DeclaredFees->Amount = 100;
+
+// Payment details
+$payIn->PaymentType = 'BANK_WIRE';
+$payIn->PaymentDetails = new MangoPay\PayInPaymentDetailsBankWire();
+
+// Execution details
+$payIn->ExecutionType = 'DIRECT';
+$payIn->ExecutionDetails = new MangoPay\PayInExecutionDetailsDirect();
+
+try {
+    $createdPayIn = $api->PayIns->Create($payIn);
+    
+    // Give user the bank wire details
+    echo "Wire reference: " . $createdPayIn->PaymentDetails->WireReference . "\n";
+    echo "Bank account: " . $createdPayIn->PaymentDetails->BankAccount->IBAN;
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## PayPal Pay-in
+
+Process PayPal payments:
+
+```php
+$payIn = new MangoPay\PayIn();
+$payIn->AuthorId = $userId;
+$payIn->CreditedUserId = $userId;
+$payIn->CreditedWalletId = $walletId;
+$payIn->DebitedFunds = new MangoPay\Money();
+$payIn->DebitedFunds->Currency = 'EUR';
+$payIn->DebitedFunds->Amount = 10000;
+$payIn->Fees = new MangoPay\Money();
+$payIn->Fees->Currency = 'EUR';
+$payIn->Fees->Amount = 100;
+
+// Payment details
+$payIn->PaymentType = 'PAYPAL';
+$payIn->PaymentDetails = new MangoPay\PayInPaymentDetailsPaypal();
+$payIn->PaymentDetails->ShippingAddress = new MangoPay\Address();
+$payIn->PaymentDetails->ShippingAddress->AddressLine1 = '123 Main St';
+$payIn->PaymentDetails->ShippingAddress->City = 'New York';
+$payIn->PaymentDetails->ShippingAddress->Country = 'US';
+$payIn->PaymentDetails->ShippingAddress->PostalCode = '10001';
+
+// Execution details
+$payIn->ExecutionType = 'WEB';
+$payIn->ExecutionDetails = new MangoPay\PayInExecutionDetailsWeb();
+$payIn->ExecutionDetails->ReturnURL = 'https://your-site.com/return';
+
+try {
+    $createdPayIn = $api->PayIns->CreatePayPal($payIn);
+    
+    // Redirect to PayPal
+    header('Location: ' . $createdPayIn->ExecutionDetails->RedirectURL);
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Google Pay
+
+Process Google Pay payments:
+
+```php
+$payIn = new MangoPay\PayIn();
+$payIn->AuthorId = $userId;
+$payIn->CreditedUserId = $userId;
+$payIn->CreditedWalletId = $walletId;
+$payIn->DebitedFunds = new MangoPay\Money();
+$payIn->DebitedFunds->Currency = 'EUR';
+$payIn->DebitedFunds->Amount = 10000;
+$payIn->Fees = new MangoPay\Money();
+$payIn->Fees->Currency = 'EUR';
+$payIn->Fees->Amount = 100;
+
+// Payment details
+$payIn->PaymentType = 'GOOGLE_PAY';
+$payIn->PaymentDetails = new MangoPay\PayInPaymentDetailsGooglePay();
+$payIn->PaymentDetails->PaymentData = $googlePayTokenData;
+
+// Execution details
+$payIn->ExecutionType = 'DIRECT';
+$payIn->ExecutionDetails = new MangoPay\PayInExecutionDetailsDirect();
+$payIn->ExecutionDetails->SecureModeReturnURL = 'https://your-site.com/return';
+
+try {
+    $createdPayIn = $api->PayIns->CreateGooglePay($payIn);
+    
+    if ($createdPayIn->Status === 'SUCCEEDED') {
+        echo "Google Pay payment successful!";
+    }
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Retrieving Pay-ins
+
+### Get a Specific Pay-in
+
+```php
+try {
+    $payIn = $api->PayIns->Get($payInId);
+    
+    echo "Status: " . $payIn->Status . "\n";
+    echo "Amount: " . ($payIn->DebitedFunds->Amount / 100) . "\n";
+    echo "Result: " . $payIn->ResultMessage;
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Recurring Pay-ins
+
+Set up recurring payments:
+
+<Steps>
+  <Step title="Create Registration">
+    ```php
+    $recurringReg = new MangoPay\PayInRecurringRegistration();
+    $recurringReg->AuthorId = $userId;
+    $recurringReg->CardId = $cardId;
+    $recurringReg->CreditedUserId = $userId;
+    $recurringReg->CreditedWalletId = $walletId;
+    $recurringReg->FirstTransactionDebitedFunds = new MangoPay\Money();
+    $recurringReg->FirstTransactionDebitedFunds->Currency = 'EUR';
+    $recurringReg->FirstTransactionDebitedFunds->Amount = 10000;
+    $recurringReg->FirstTransactionFees = new MangoPay\Money();
+    $recurringReg->FirstTransactionFees->Currency = 'EUR';
+    $recurringReg->FirstTransactionFees->Amount = 100;
+    
+    $registration = $api->PayIns->CreateRecurringRegistration($recurringReg);
+    ```
+  </Step>
+
+  <Step title="Create First Payment (CIT)">
+    ```php
+    $recurringCIT = new MangoPay\RecurringPayInCIT();
+    $recurringCIT->RecurringPayinRegistrationId = $registration->Id;
+    $recurringCIT->DebitedFunds = new MangoPay\Money();
+    $recurringCIT->DebitedFunds->Currency = 'EUR';
+    $recurringCIT->DebitedFunds->Amount = 10000;
+    $recurringCIT->Fees = new MangoPay\Money();
+    $recurringCIT->Fees->Currency = 'EUR';
+    $recurringCIT->Fees->Amount = 100;
+    
+    $payIn = $api->PayIns->CreateRecurringPayInRegistrationCIT($recurringCIT);
+    ```
+  </Step>
+
+  <Step title="Create Subsequent Payments (MIT)">
+    ```php
+    $recurringMIT = new MangoPay\RecurringPayInMIT();
+    $recurringMIT->RecurringPayinRegistrationId = $registration->Id;
+    $recurringMIT->DebitedFunds = new MangoPay\Money();
+    $recurringMIT->DebitedFunds->Currency = 'EUR';
+    $recurringMIT->DebitedFunds->Amount = 10000;
+    $recurringMIT->Fees = new MangoPay\Money();
+    $recurringMIT->Fees->Currency = 'EUR';
+    $recurringMIT->Fees->Amount = 100;
+    
+    $payIn = $api->PayIns->CreateRecurringPayInRegistrationMIT($recurringMIT);
+    ```
+  </Step>
+</Steps>
+
+## Refunding Pay-ins
+
+Create refunds for pay-ins:
+
+```php
+$refund = new MangoPay\Refund();
+$refund->AuthorId = $userId;
+$refund->DebitedFunds = new MangoPay\Money();
+$refund->DebitedFunds->Amount = 5000; // Partial refund
+$refund->DebitedFunds->Currency = 'EUR';
+$refund->Fees = new MangoPay\Money();
+$refund->Fees->Amount = 0;
+$refund->Fees->Currency = 'EUR';
+
+try {
+    $createdRefund = $api->PayIns->CreateRefund($payInId, $refund);
+    
+    if ($createdRefund->Status === 'SUCCEEDED') {
+        echo "Refund successful";
+    }
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Using Idempotency
+
+Prevent duplicate payments:
+
+```php
+$idempotencyKey = 'payin_' . $userId . '_' . $orderId;
+
+$createdPayIn = $api->PayIns->Create($payIn, $idempotencyKey);
+
+// Retrying with the same key returns the same pay-in
+$samePayIn = $api->PayIns->Create($payIn, $idempotencyKey);
+```
+
+## 3D Secure Handling
+
+Handle 3D Secure authentication:
+
+```php
+$payIn = $api->PayIns->Create($cardPayIn);
+
+if ($payIn->SecureModeNeeded) {
+    // Redirect to 3DS page
+    header('Location: ' . $payIn->SecureModeRedirectURL);
+    exit;
+}
+
+// After redirect back, check status
+$payIn = $api->PayIns->Get($payInId);
+
+if ($payIn->Status === 'SUCCEEDED') {
+    echo "Payment completed successfully";
+} else {
+    echo "Payment failed: " . $payIn->ResultMessage;
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Idempotency Keys" icon="shield">
+    Always use idempotency keys to prevent duplicate charges.
+  </Card>
+  
+  <Card title="Handle Webhooks" icon="webhook">
+    Set up webhooks for payment status updates.
+  </Card>
+  
+  <Card title="Store Transaction IDs" icon="database">
+    Save pay-in IDs for reconciliation and support.
+  </Card>
+  
+  <Card title="Validate Amounts" icon="calculator">
+    Ensure amounts are in cents and non-negative.
+  </Card>
+</CardGroup>
+
+## Error Handling
+
+```php
+try {
+    $payIn = $api->PayIns->Create($newPayIn, $idempotencyKey);
+} catch (MangoPay\Libraries\ResponseException $e) {
+    $errorCode = $e->GetCode();
+    $errorMessage = $e->GetMessage();
+    
+    // Log the error
+    error_log("PayIn failed: " . $errorMessage);
+    
+    // Check specific errors
+    foreach ($e->GetErrorDetails() as $error) {
+        if ($error->Message === 'Insufficient wallet balance') {
+            echo "Please add funds to your wallet";
+        }
+    }
+} catch (MangoPay\Libraries\Exception $e) {
+    echo "SDK Error: " . $e->GetMessage();
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Card Payments" icon="credit-card" href="/guides/card-payments">
+    Learn more about card payment integration
+  </Card>
+  
+  <Card title="Webhooks" icon="webhook" href="/guides/webhooks">
+    Set up webhooks for payment notifications
+  </Card>
+</CardGroup>

@@ -1,0 +1,496 @@
+---
+title: 'Bank Accounts'
+description: 'Add and manage user bank accounts for payouts'
+---
+
+## Overview
+
+Bank accounts are required to process payouts from Mangopay wallets. Users must register their bank account details before they can receive funds.
+
+Mangopay supports various bank account types:
+- **IBAN**: European bank accounts
+- **GB**: UK bank accounts
+- **US**: US bank accounts
+- **CA**: Canadian bank accounts
+- **OTHER**: Other international bank accounts
+
+## Creating an IBAN Bank Account
+
+The most common type for European bank accounts:
+
+<Steps>
+  <Step title="Create Bank Account Object">
+    ```php
+    $bankAccount = new MangoPay\BankAccount();
+    $bankAccount->UserId = $userId;
+    $bankAccount->Type = 'IBAN';
+    $bankAccount->OwnerName = 'John Doe';
+    
+    // Owner address
+    $address = new MangoPay\Address();
+    $address->AddressLine1 = '123 Main Street';
+    $address->City = 'Paris';
+    $address->Region = 'Ile-de-France';
+    $address->PostalCode = '75001';
+    $address->Country = 'FR';
+    $bankAccount->OwnerAddress = $address;
+    ```
+  </Step>
+
+  <Step title="Add IBAN Details">
+    ```php
+    $bankAccount->Details = new MangoPay\BankAccountDetailsIBAN();
+    $bankAccount->Details->IBAN = 'FR7618829754160173622224154';
+    $bankAccount->Details->BIC = 'CMBRFR2BARK'; // Optional but recommended
+    ```
+  </Step>
+
+  <Step title="Submit to API">
+    ```php
+    try {
+        $createdBankAccount = $api->Users->CreateBankAccount($userId, $bankAccount);
+        echo "Bank account created with ID: " . $createdBankAccount->Id;
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        echo "Error: " . $e->GetMessage();
+    }
+    ```
+  </Step>
+</Steps>
+
+## Creating a US Bank Account
+
+For US dollar accounts:
+
+```php
+$bankAccount = new MangoPay\BankAccount();
+$bankAccount->UserId = $userId;
+$bankAccount->Type = 'US';
+$bankAccount->OwnerName = 'John Doe';
+
+// Owner address
+$address = new MangoPay\Address();
+$address->AddressLine1 = '123 Main Street';
+$address->City = 'New York';
+$address->Region = 'NY';
+$address->PostalCode = '10001';
+$address->Country = 'US';
+$bankAccount->OwnerAddress = $address;
+
+// US account details
+$bankAccount->Details = new MangoPay\BankAccountDetailsUS();
+$bankAccount->Details->AccountNumber = '123456789';
+$bankAccount->Details->ABA = '111000025'; // Routing number
+$bankAccount->Details->DepositAccountType = 'CHECKING'; // or 'SAVINGS'
+
+try {
+    $createdBankAccount = $api->Users->CreateBankAccount($userId, $bankAccount);
+    echo "US bank account created: " . $createdBankAccount->Id;
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Creating a GB Bank Account
+
+For UK bank accounts:
+
+```php
+$bankAccount = new MangoPay\BankAccount();
+$bankAccount->UserId = $userId;
+$bankAccount->Type = 'GB';
+$bankAccount->OwnerName = 'John Doe';
+
+// Owner address
+$address = new MangoPay\Address();
+$address->AddressLine1 = '123 High Street';
+$address->City = 'London';
+$address->PostalCode = 'SW1A 1AA';
+$address->Country = 'GB';
+$bankAccount->OwnerAddress = $address;
+
+// GB account details
+$bankAccount->Details = new MangoPay\BankAccountDetailsGB();
+$bankAccount->Details->AccountNumber = '12345678';
+$bankAccount->Details->SortCode = '123456';
+
+try {
+    $createdBankAccount = $api->Users->CreateBankAccount($userId, $bankAccount);
+    echo "GB bank account created: " . $createdBankAccount->Id;
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Creating a Canadian Bank Account
+
+For Canadian bank accounts:
+
+```php
+$bankAccount = new MangoPay\BankAccount();
+$bankAccount->UserId = $userId;
+$bankAccount->Type = 'CA';
+$bankAccount->OwnerName = 'John Doe';
+
+// Owner address
+$address = new MangoPay\Address();
+$address->AddressLine1 = '123 Main Street';
+$address->City = 'Toronto';
+$address->Region = 'ON';
+$address->PostalCode = 'M5H 2N2';
+$address->Country = 'CA';
+$bankAccount->OwnerAddress = $address;
+
+// CA account details
+$bankAccount->Details = new MangoPay\BankAccountDetailsCA();
+$bankAccount->Details->AccountNumber = '123456789';
+$bankAccount->Details->InstitutionNumber = '001'; // Bank number
+$bankAccount->Details->BranchCode = '12345'; // Transit number
+$bankAccount->Details->BankName = 'Royal Bank of Canada';
+
+try {
+    $createdBankAccount = $api->Users->CreateBankAccount($userId, $bankAccount);
+    echo "CA bank account created: " . $createdBankAccount->Id;
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Creating OTHER Type Bank Account
+
+For international bank accounts that don't fit other types:
+
+```php
+$bankAccount = new MangoPay\BankAccount();
+$bankAccount->UserId = $userId;
+$bankAccount->Type = 'OTHER';
+$bankAccount->OwnerName = 'John Doe';
+
+// Owner address
+$address = new MangoPay\Address();
+$address->AddressLine1 = '123 Main Street';
+$address->City = 'Tokyo';
+$address->PostalCode = '100-0001';
+$address->Country = 'JP';
+$bankAccount->OwnerAddress = $address;
+
+// OTHER account details
+$bankAccount->Details = new MangoPay\BankAccountDetailsOTHER();
+$bankAccount->Details->Type = 'OTHER';
+$bankAccount->Details->AccountNumber = '123456789';
+$bankAccount->Details->BIC = 'BANKJPJTXXX';
+$bankAccount->Details->Country = 'JP';
+
+try {
+    $createdBankAccount = $api->Users->CreateBankAccount($userId, $bankAccount);
+    echo "Bank account created: " . $createdBankAccount->Id;
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Retrieving Bank Accounts
+
+### Get a Specific Bank Account
+
+```php
+try {
+    $bankAccount = $api->Users->GetBankAccount($userId, $bankAccountId);
+    
+    echo "Account owner: " . $bankAccount->OwnerName . "\n";
+    echo "Type: " . $bankAccount->Type . "\n";
+    echo "Active: " . ($bankAccount->Active ? 'Yes' : 'No') . "\n";
+    
+    if ($bankAccount->Type === 'IBAN') {
+        echo "IBAN: " . $bankAccount->Details->IBAN;
+    }
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+### Get All Bank Accounts for a User
+
+```php
+$pagination = new MangoPay\Pagination(1, 20);
+
+try {
+    $bankAccounts = $api->Users->GetBankAccounts($userId, $pagination);
+    
+    foreach ($bankAccounts as $account) {
+        echo "Bank Account ID: " . $account->Id . "\n";
+        echo "Owner: " . $account->OwnerName . "\n";
+        echo "Type: " . $account->Type . "\n";
+        echo "Active: " . ($account->Active ? 'Yes' : 'No') . "\n\n";
+    }
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+### Filter Bank Accounts
+
+Filter by active status:
+
+```php
+$pagination = new MangoPay\Pagination(1, 20);
+$filter = new MangoPay\FilterBankAccounts();
+$filter->Active = true; // Get only active accounts
+
+$bankAccounts = $api->Users->GetBankAccounts($userId, $pagination, null, $filter);
+```
+
+## Updating Bank Accounts
+
+You can update the active status of a bank account:
+
+```php
+try {
+    $bankAccount = $api->Users->GetBankAccount($userId, $bankAccountId);
+    
+    // Deactivate the account
+    $bankAccount->Active = false;
+    
+    $updatedBankAccount = $api->Users->UpdateBankAccount($userId, $bankAccount);
+    echo "Bank account updated";
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+<Note>
+Most bank account properties are read-only after creation. You can only update the `Active` status.
+</Note>
+
+## Bank Account Transactions
+
+Get transactions for a specific bank account:
+
+```php
+$pagination = new MangoPay\Pagination(1, 50);
+$filter = new MangoPay\FilterTransactions();
+$filter->Type = 'PAYOUT';
+
+try {
+    $transactions = $api->BankAccounts->GetTransactions(
+        $bankAccountId, 
+        $pagination, 
+        $filter
+    );
+    
+    foreach ($transactions as $transaction) {
+        echo "Transaction: " . $transaction->Id . "\n";
+        echo "Amount: " . ($transaction->DebitedFunds->Amount / 100) . "\n";
+        echo "Status: " . $transaction->Status . "\n\n";
+    }
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Using Idempotency
+
+Prevent duplicate bank account creation:
+
+```php
+$bankAccount = new MangoPay\BankAccount();
+$bankAccount->UserId = $userId;
+$bankAccount->Type = 'IBAN';
+$bankAccount->OwnerName = 'John Doe';
+
+$address = new MangoPay\Address();
+$address->AddressLine1 = '123 Main Street';
+$address->City = 'Paris';
+$address->PostalCode = '75001';
+$address->Country = 'FR';
+$bankAccount->OwnerAddress = $address;
+
+$bankAccount->Details = new MangoPay\BankAccountDetailsIBAN();
+$bankAccount->Details->IBAN = 'FR7618829754160173622224154';
+
+// Use idempotency key
+$idempotencyKey = 'bank_account_' . $userId . '_' . time();
+
+try {
+    $created = $api->Users->CreateBankAccount($userId, $bankAccount, $idempotencyKey);
+    
+    // Retry with same key returns the same account
+    $same = $api->Users->CreateBankAccount($userId, $bankAccount, $idempotencyKey);
+    
+    assert($created->Id === $same->Id);
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Validation Best Practices
+
+Validate bank account data before submission:
+
+```php
+function validateIBAN($iban) {
+    // Remove spaces and convert to uppercase
+    $iban = str_replace(' ', '', strtoupper($iban));
+    
+    // Basic IBAN validation (simplified)
+    if (!preg_match('/^[A-Z]{2}[0-9]{2}[A-Z0-9]+$/', $iban)) {
+        return false;
+    }
+    
+    // Length check (between 15 and 34 characters)
+    $length = strlen($iban);
+    if ($length < 15 || $length > 34) {
+        return false;
+    }
+    
+    return true;
+}
+
+function createBankAccountWithValidation($api, $userId, $iban, $ownerName, $address) {
+    // Validate IBAN
+    if (!validateIBAN($iban)) {
+        throw new Exception('Invalid IBAN format');
+    }
+    
+    // Create bank account
+    $bankAccount = new MangoPay\BankAccount();
+    $bankAccount->UserId = $userId;
+    $bankAccount->Type = 'IBAN';
+    $bankAccount->OwnerName = $ownerName;
+    $bankAccount->OwnerAddress = $address;
+    
+    $bankAccount->Details = new MangoPay\BankAccountDetailsIBAN();
+    $bankAccount->Details->IBAN = str_replace(' ', '', strtoupper($iban));
+    
+    try {
+        return $api->Users->CreateBankAccount($userId, $bankAccount);
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        throw new Exception('Failed to create bank account: ' . $e->GetMessage());
+    }
+}
+```
+
+## Helper Functions
+
+Useful helper functions for bank account management:
+
+```php
+// Get user's active bank accounts
+function getActiveBankAccounts($api, $userId) {
+    $pagination = new MangoPay\Pagination(1, 100);
+    $filter = new MangoPay\FilterBankAccounts();
+    $filter->Active = true;
+    
+    return $api->Users->GetBankAccounts($userId, $pagination, null, $filter);
+}
+
+// Check if user has any bank account
+function hasActiveBankAccount($api, $userId) {
+    $accounts = getActiveBankAccounts($api, $userId);
+    return count($accounts) > 0;
+}
+
+// Get default bank account (first active)
+function getDefaultBankAccount($api, $userId) {
+    $accounts = getActiveBankAccounts($api, $userId);
+    return !empty($accounts) ? $accounts[0] : null;
+}
+
+// Usage
+if (!hasActiveBankAccount($api, $userId)) {
+    echo "Please add a bank account to receive payouts";
+} else {
+    $defaultAccount = getDefaultBankAccount($api, $userId);
+    echo "Default account: " . $defaultAccount->OwnerName;
+}
+```
+
+## Security Considerations
+
+<Warning>
+Bank account information is sensitive. Always:
+- Validate data before submission
+- Use HTTPS for all API calls
+- Never log full bank account details
+- Restrict access to bank account management
+</Warning>
+
+```php
+// Mask sensitive bank account data for logging
+function maskBankAccountData($bankAccount) {
+    $masked = clone $bankAccount;
+    
+    if ($bankAccount->Type === 'IBAN' && isset($bankAccount->Details->IBAN)) {
+        $iban = $bankAccount->Details->IBAN;
+        $masked->Details->IBAN = substr($iban, 0, 4) . 
+                                 str_repeat('*', strlen($iban) - 8) . 
+                                 substr($iban, -4);
+    }
+    
+    return $masked;
+}
+
+// Log safely
+$bankAccount = $api->Users->GetBankAccount($userId, $bankAccountId);
+$maskedAccount = maskBankAccountData($bankAccount);
+error_log("Bank account: " . json_encode($maskedAccount));
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Validate Before Submit" icon="check-double">
+    Validate IBAN, account numbers, and routing codes before creating bank accounts.
+  </Card>
+  
+  <Card title="Handle Multiple Accounts" icon="building-columns">
+    Allow users to add multiple bank accounts for flexibility.
+  </Card>
+  
+  <Card title="Mark Default Account" icon="star">
+    Let users set a default bank account for payouts in your application.
+  </Card>
+  
+  <Card title="Verify Ownership" icon="shield">
+    Ensure the account owner name matches the user's identity.
+  </Card>
+</CardGroup>
+
+## Common Errors
+
+Handle common bank account errors:
+
+```php
+try {
+    $bankAccount = $api->Users->CreateBankAccount($userId, $newBankAccount);
+} catch (MangoPay\Libraries\ResponseException $e) {
+    $errorDetails = $e->GetErrorDetails();
+    
+    foreach ($errorDetails as $error) {
+        switch ($error->Message) {
+            case 'The IBAN format is not valid':
+                echo "Please check the IBAN format";
+                break;
+            case 'One or several required parameters are missing or incorrect':
+                echo "Missing required information";
+                break;
+            case 'The account number is not valid':
+                echo "Invalid account number";
+                break;
+            default:
+                echo "Error: " . $error->Message;
+        }
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Processing Payouts" icon="money-bill-transfer" href="/guides/processing-payouts">
+    Learn how to send funds to bank accounts
+  </Card>
+  
+  <Card title="KYC Documents" icon="file-contract" href="/guides/kyc-documents">
+    Verify users before processing large payouts
+  </Card>
+</CardGroup>

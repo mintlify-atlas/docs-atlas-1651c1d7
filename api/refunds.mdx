@@ -1,0 +1,145 @@
+---
+title: 'Refunds'
+description: 'Manage refund transactions in Mangopay'
+icon: 'rotate-left'
+---
+
+The `ApiRefunds` class provides methods to retrieve refund transactions. Refunds are created through the PayIn or PayOut objects.
+
+## Methods
+
+### Get
+
+Get a refund object by ID.
+
+```php
+public function Get($refundId)
+```
+
+<ParamField path="refundId" type="string" required>
+  The unique identifier of the refund
+</ParamField>
+
+**Returns:** `\MangoPay\Refund` - The Refund object
+
+**Example:**
+
+```php
+$refund = $api->Refunds->Get('refund_123456');
+```
+
+<Note>
+  To create refunds, use `ApiPayIns->CreateRefund()` for pay-in refunds. Refunds for payouts are created through the payout endpoints.
+</Note>
+
+## Refund Entity
+
+The `Refund` entity represents a refund transaction.
+
+### Properties
+
+<ResponseField name="Id" type="string">
+  The unique identifier of the refund
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of when the refund was created
+</ResponseField>
+
+<ResponseField name="Tag" type="string">
+  Custom data for your use
+</ResponseField>
+
+<ResponseField name="AuthorId" type="string" required>
+  The user ID who initiated the refund
+</ResponseField>
+
+<ResponseField name="CreditedUserId" type="string">
+  The user ID being credited by the refund
+</ResponseField>
+
+<ResponseField name="DebitedWalletId" type="string">
+  The ID of the wallet being debited for the refund
+</ResponseField>
+
+<ResponseField name="CreditedWalletId" type="string">
+  The ID of the wallet being credited by the refund
+</ResponseField>
+
+<ResponseField name="DebitedFunds" type="\MangoPay\Money" required>
+  The amount debited for the refund
+</ResponseField>
+
+<ResponseField name="CreditedFunds" type="\MangoPay\Money">
+  The amount credited by the refund (DebitedFunds - Fees)
+</ResponseField>
+
+<ResponseField name="Fees" type="\MangoPay\Money" required>
+  The fees for the refund transaction
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  The status of the refund: `CREATED`, `SUCCEEDED`, `FAILED`
+</ResponseField>
+
+<ResponseField name="ResultCode" type="string">
+  The result code of the refund
+</ResponseField>
+
+<ResponseField name="ResultMessage" type="string">
+  The result message explaining the result code
+</ResponseField>
+
+<ResponseField name="ExecutionDate" type="int">
+  Unix timestamp of when the refund was executed
+</ResponseField>
+
+<ResponseField name="Type" type="string">
+  The transaction type: `PAYOUT` or `TRANSFER`
+</ResponseField>
+
+<ResponseField name="Nature" type="string">
+  The transaction nature: `REFUND`
+</ResponseField>
+
+<ResponseField name="InitialTransactionId" type="string" required>
+  The ID of the initial transaction being refunded
+</ResponseField>
+
+<ResponseField name="InitialTransactionType" type="string" required>
+  The type of the initial transaction: `PAYIN`, `PAYOUT`, `TRANSFER`
+</ResponseField>
+
+<ResponseField name="RefundReason" type="\MangoPay\RefundReasonDetails">
+  Contains information about the reason for the refund
+</ResponseField>
+
+<ResponseField name="Reference" type="string">
+  Custom reference for the refund
+</ResponseField>
+
+<ResponseField name="StatementDescriptor" type="string">
+  A description that appears on the bank statement
+</ResponseField>
+
+## Usage Example
+
+Refunds are typically created through the parent transaction:
+
+```php
+// Create a refund for a pay-in
+$refund = new \MangoPay\Refund();
+$refund->AuthorId = $userId;
+$refund->DebitedFunds = new \MangoPay\Money();
+$refund->DebitedFunds->Currency = 'EUR';
+$refund->DebitedFunds->Amount = 500;
+$refund->Fees = new \MangoPay\Money();
+$refund->Fees->Currency = 'EUR';
+$refund->Fees->Amount = 5;
+
+// Create the refund
+$result = $api->PayIns->CreateRefund('payin_123456', $refund);
+
+// Later, retrieve the refund
+$retrievedRefund = $api->Refunds->Get($result->Id);
+```

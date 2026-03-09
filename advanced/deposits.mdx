@@ -1,0 +1,406 @@
+---
+title: "Deposits"
+description: "Manage pre-authorized deposits for card payments"
+icon: "piggy-bank"
+---
+
+## Overview
+
+Deposits allow you to pre-authorize funds on a user's card without immediately capturing them. This is useful for scenarios like hotel bookings or rental services where you need to hold funds but may not charge the full amount.
+
+## Creating a Deposit
+
+Create a new deposit with pre-authorization:
+
+```php
+use MangoPay\CreateDeposit;
+use MangoPay\Money;
+use MangoPay\Address;
+use MangoPay\Billing;
+use MangoPay\BrowserInfo;
+
+$userId = 'user_123456';
+$cardId = 'card_123456';
+
+$deposit = new CreateDeposit();
+$deposit->AuthorId = $userId;
+$deposit->CardId = $cardId;
+
+// Set deposit amount
+$debitedFunds = new Money();
+$debitedFunds->Currency = 'EUR';
+$debitedFunds->Amount = 100000; // 1000.00 EUR
+$deposit->DebitedFunds = $debitedFunds;
+
+// Required security fields
+$deposit->SecureModeReturnURL = "https://www.mysite.com/deposit-return";
+$deposit->StatementDescriptor = "Deposit for booking #12345";
+$deposit->Culture = "EN";
+$deposit->IpAddress = "2001:0620:0000:0000:0211:24FF:FE80:C12C";
+
+// Browser info for 3DS authentication
+$browserInfo = new BrowserInfo();
+$browserInfo->AcceptHeader = "text/html, application/xhtml+xml, application/xml;q=0.9, /;q=0.8";
+$browserInfo->JavaEnabled = true;
+$browserInfo->Language = "en-US";
+$browserInfo->ColorDepth = 24;
+$browserInfo->ScreenHeight = 1080;
+$browserInfo->ScreenWidth = 1920;
+$browserInfo->TimeZoneOffset = "-120";
+$browserInfo->UserAgent = "Mozilla/5.0";
+$browserInfo->JavascriptEnabled = true;
+$deposit->BrowserInfo = $browserInfo;
+
+// Billing information
+$address = new Address();
+$address->AddressLine1 = 'Main Street no 5';
+$address->City = 'Paris';
+$address->Country = 'FR';
+$address->PostalCode = '68400';
+$address->Region = 'Europe';
+
+$billing = new Billing();
+$billing->FirstName = 'John';
+$billing->LastName = 'Doe';
+$billing->Address = $address;
+$deposit->Billing = $billing;
+$deposit->Shipping = $billing; // Can use same or different address
+
+$createdDeposit = $api->Deposits->Create($deposit);
+
+echo "Deposit ID: " . $createdDeposit->Id . "\n";
+echo "Status: " . $createdDeposit->PaymentStatus . "\n";
+```
+
+<Note>
+  If 3DS authentication is required, redirect the user to `$createdDeposit->SecureModeRedirectURL` to complete verification.
+</Note>
+
+## Getting a Deposit
+
+Retrieve deposit details:
+
+```php
+$depositId = 'deposit_123456';
+$deposit = $api->Deposits->Get($depositId);
+
+echo "Author: " . $deposit->AuthorId . "\n";
+echo "Amount: " . $deposit->DebitedFunds->Amount . " " . $deposit->DebitedFunds->Currency . "\n";
+echo "Payment Status: " . $deposit->PaymentStatus . "\n";
+echo "Expiration Date: " . date('Y-m-d H:i:s', $deposit->ExpirationDate) . "\n";
+
+// Access card information
+if ($deposit->CardInfo !== null) {
+    echo "Card Type: " . $deposit->CardInfo->Type . "\n";
+    echo "Card Brand: " . $deposit->CardInfo->Brand . "\n";
+}
+```
+
+## Getting Deposits for a User
+
+Retrieve all deposits for a specific user:
+
+```php
+use MangoPay\Pagination;
+use MangoPay\FilterPreAuthorizations;
+use MangoPay\Sorting;
+
+$userId = 'user_123456';
+$pagination = new Pagination(1, 20);
+$filter = new FilterPreAuthorizations();
+$sorting = new Sorting();
+
+$deposits = $api->Deposits->GetAllForUser($userId, $pagination, $filter, $sorting);
+
+foreach ($deposits as $deposit) {
+    echo "Deposit: " . $deposit->Id . " - Status: " . $deposit->PaymentStatus . "\n";
+}
+```
+
+## Getting Deposits for a Card
+
+Retrieve all deposits associated with a specific card:
+
+```php
+$cardId = 'card_123456';
+$pagination = new Pagination(1, 20);
+
+$deposits = $api->Deposits->GetAllForCard($cardId, $pagination);
+
+foreach ($deposits as $deposit) {
+    echo "Deposit: " . $deposit->Id . " - Amount: " . $deposit->DebitedFunds->Amount . "\n";
+}
+```
+
+## Canceling a Deposit
+
+Cancel a deposit before it's captured:
+
+```php
+use MangoPay\CancelDeposit;
+
+$depositId = 'deposit_123456';
+
+$cancelDto = new CancelDeposit();
+$cancelDto->PaymentStatus = "CANCELED";
+
+$api->Deposits->Cancel($depositId, $cancelDto);
+
+// Verify cancellation
+$deposit = $api->Deposits->Get($depositId);
+if ($deposit->PaymentStatus === "CANCELED") {
+    echo "Deposit canceled successfully";
+}
+```
+
+## Updating a Deposit
+
+Update deposit details:
+
+```php
+use MangoPay\UpdateDeposit;
+
+$depositId = 'deposit_123456';
+
+$updateDto = new UpdateDeposit();
+// Update fields as needed
+// (specific update fields depend on deposit status)
+
+$updatedDeposit = $api->Deposits->Update($depositId, $updateDto);
+```
+
+## Capturing a Deposit
+
+Capture funds from a deposit by creating a pre-authorized deposit pay-in:
+
+```php
+use MangoPay\CreateCardPreAuthorizedDepositPayIn;
+use MangoPay\Money;
+
+$depositId = 'deposit_123456';
+$userId = 'user_123456';
+$walletId = 'wallet_123456';
+
+$payIn = new CreateCardPreAuthorizedDepositPayIn();
+$payIn->DepositId = $depositId;
+$payIn->AuthorId = $userId;
+$payIn->CreditedWalletId = $walletId;
+
+// Set amount to capture (can be less than or equal to deposit amount)
+$debitedFunds = new Money();
+$debitedFunds->Amount = 50000; // 500.00 EUR (capturing partial amount)
+$debitedFunds->Currency = "EUR";
+$payIn->DebitedFunds = $debitedFunds;
+
+// Set fees
+$fees = new Money();
+$fees->Amount = 0;
+$fees->Currency = "EUR";
+$payIn->Fees = $fees;
+
+$capturedPayIn = $api->PayIns->CreateDepositPreauthorizedPayInWithoutComplement($payIn);
+
+echo "Captured: " . $capturedPayIn->DebitedFunds->Amount . " from deposit\n";
+```
+
+<Tip>
+  You can capture less than the pre-authorized amount, allowing partial captures for scenarios like damage deposits.
+</Tip>
+
+## Getting Deposit Transactions
+
+Retrieve all transactions associated with a deposit:
+
+```php
+use MangoPay\Pagination;
+use MangoPay\FilterTransactions;
+use MangoPay\Sorting;
+
+$depositId = 'deposit_123456';
+$pagination = new Pagination(1, 50);
+$filter = new FilterTransactions();
+$sorting = new Sorting();
+
+$transactions = $api->Deposits->GetTransactions($depositId, $pagination, $filter, $sorting);
+
+foreach ($transactions as $transaction) {
+    echo "Transaction: " . $transaction->Id . "\n";
+    echo "Type: " . $transaction->Type . "\n";
+    echo "Amount: " . $transaction->DebitedFunds->Amount . "\n";
+}
+```
+
+## Deposit Payment Statuses
+
+Deposits progress through various payment statuses:
+
+- `CREATED` - Deposit created but not yet processed
+- `WAITING` - Awaiting 3DS authentication
+- `TO_BE_COMPLETED` - Ready for capture
+- `SUCCEEDED` - Deposit successfully captured
+- `CANCELED` - Deposit canceled
+- `FAILED` - Deposit failed
+- `EXPIRED` - Deposit expired before capture
+
+## Complete Deposit Workflow
+
+Here's a complete example of the deposit lifecycle:
+
+```php
+use MangoPay\MangoPayApi;
+use MangoPay\CreateDeposit;
+use MangoPay\CancelDeposit;
+use MangoPay\Money;
+
+$api = new MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+$api->Config->TemporaryFolder = '/tmp/';
+
+try {
+    // Step 1: Create deposit
+    $deposit = new CreateDeposit();
+    $deposit->AuthorId = 'user_123456';
+    $deposit->CardId = 'card_123456';
+    
+    $debitedFunds = new Money();
+    $debitedFunds->Currency = 'EUR';
+    $debitedFunds->Amount = 100000;
+    $deposit->DebitedFunds = $debitedFunds;
+    
+    $deposit->SecureModeReturnURL = "https://www.mysite.com/return";
+    $deposit->StatementDescriptor = "Security deposit";
+    $deposit->Culture = "EN";
+    $deposit->IpAddress = "85.70.150.10";
+    // ... add billing, browser info, etc.
+    
+    $createdDeposit = $api->Deposits->Create($deposit);
+    
+    // Step 2: Check if 3DS required
+    if (!empty($createdDeposit->SecureModeRedirectURL)) {
+        // Redirect user for authentication
+        header('Location: ' . $createdDeposit->SecureModeRedirectURL);
+        exit();
+    }
+    
+    // Step 3: After user returns, check status
+    $deposit = $api->Deposits->Get($createdDeposit->Id);
+    
+    if ($deposit->PaymentStatus === 'TO_BE_COMPLETED') {
+        // Step 4a: Capture funds
+        $payIn = new \MangoPay\CreateCardPreAuthorizedDepositPayIn();
+        $payIn->DepositId = $deposit->Id;
+        $payIn->AuthorId = $deposit->AuthorId;
+        $payIn->CreditedWalletId = 'wallet_123456';
+        
+        $amount = new Money();
+        $amount->Amount = 50000; // Capture partial amount
+        $amount->Currency = 'EUR';
+        $payIn->DebitedFunds = $amount;
+        
+        $fees = new Money();
+        $fees->Amount = 0;
+        $fees->Currency = 'EUR';
+        $payIn->Fees = $fees;
+        
+        $captured = $api->PayIns->CreateDepositPreauthorizedPayInWithoutComplement($payIn);
+        echo "Captured: " . $captured->DebitedFunds->Amount . "\n";
+        
+    } else {
+        // Step 4b: Or cancel if not needed
+        $cancelDto = new CancelDeposit();
+        $cancelDto->PaymentStatus = "CANCELED";
+        $api->Deposits->Cancel($deposit->Id, $cancelDto);
+        echo "Deposit canceled\n";
+    }
+    
+} catch (\MangoPay\Libraries\ResponseException $e) {
+    echo "API Error: " . $e->getMessage();
+} catch (\MangoPay\Libraries\Exception $e) {
+    echo "SDK Error: " . $e->getMessage();
+}
+```
+
+## Authentication Result
+
+Check 3DS authentication results:
+
+```php
+$deposit = $api->Deposits->Get($depositId);
+
+if ($deposit->AuthenticationResult !== null) {
+    echo "3DS Version: " . $deposit->AuthenticationResult->ThreeDSVersion . "\n";
+    echo "Result: " . $deposit->AuthenticationResult->Result . "\n";
+    echo "Result Message: " . $deposit->AuthenticationResult->ResultMessage . "\n";
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Set Appropriate Amounts" icon="dollar-sign">
+    Pre-authorize reasonable amounts based on your use case - too high may cause customer concern.
+  </Card>
+  
+  <Card title="Monitor Expiration" icon="clock">
+    Deposits have expiration dates - capture funds before they expire.
+  </Card>
+  
+  <Card title="Clear Communication" icon="message">
+    Inform users about pre-authorization amounts and when funds will be captured.
+  </Card>
+  
+  <Card title="Handle 3DS Properly" icon="shield-halved">
+    Always implement 3DS authentication flow for security and compliance.
+  </Card>
+</CardGroup>
+
+## Error Handling
+
+```php
+use MangoPay\Libraries\ResponseException;
+
+try {
+    $deposit = $api->Deposits->Create($depositData);
+} catch (ResponseException $e) {
+    switch ($e->getCode()) {
+        case 400:
+            echo "Invalid request: " . $e->getMessage();
+            break;
+        case 401:
+            echo "Authentication failed";
+            break;
+        case 403:
+            echo "Card blocked or insufficient funds";
+            break;
+        default:
+            echo "Error: " . $e->getMessage();
+    }
+    
+    // Get detailed errors
+    $errors = $e->GetErrorDetails();
+    foreach ($errors as $error) {
+        echo "Error Detail: " . $error->Message . "\n";
+    }
+}
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Card Pre-Authorizations" icon="credit-card" href="/api-reference/preauthorizations">
+    Learn about standard card pre-authorizations
+  </Card>
+  
+  <Card title="Pay-Ins" icon="money-bill-wave" href="/api-reference/payins">
+    Understand different pay-in methods
+  </Card>
+  
+  <Card title="Cards" icon="credit-card" href="/api-reference/cards">
+    Manage user cards and registrations
+  </Card>
+  
+  <Card title="3DS Authentication" icon="shield-halved" href="/api-reference/3ds">
+    Implement secure 3DS authentication
+  </Card>
+</CardGroup>

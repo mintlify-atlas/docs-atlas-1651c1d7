@@ -1,0 +1,273 @@
+---
+title: MangoPayApi
+description: Main entry point for the Mangopay PHP SDK
+---
+
+## Overview
+
+The `MangoPayApi` class is the main entry point for interacting with the Mangopay API. It provides access to all API managers and holds configuration and authorization data.
+
+## Constructor
+
+### __construct()
+
+Creates a new instance of the MangoPayApi class with default configuration.
+
+```php
+$api = new \MangoPay\MangoPayApi();
+```
+
+## Configuration Properties
+
+<ResponseField name="Config" type="\MangoPay\Libraries\Configuration">
+  Configuration instance containing API credentials and settings.
+</ResponseField>
+
+<ResponseField name="OAuthTokenManager" type="\MangoPay\Libraries\AuthorizationTokenManager">
+  Manages OAuth authorization tokens for API requests.
+</ResponseField>
+
+<ResponseField name="AuthenticationManager" type="\MangoPay\Libraries\ApiOAuth">
+  Handles OAuth authentication methods.
+</ResponseField>
+
+<ResponseField name="logger" type="Psr\Log\LoggerInterface">
+  PSR-3 logger interface for logging API requests and responses.
+</ResponseField>
+
+<ResponseField name="httpClient" type="\MangoPay\Libraries\HttpBase">
+  HTTP client used for making API requests.
+</ResponseField>
+
+<ResponseField name="RateLimits" type="RateLimit[]">
+  Array holding rate limit data from X-RateLimit response headers.
+</ResponseField>
+
+## API Manager Properties
+
+<ResponseField name="Responses" type="ApiResponses">
+  Methods for handling API responses.
+</ResponseField>
+
+<ResponseField name="Clients" type="ApiClients">
+  Methods for managing client accounts.
+</ResponseField>
+
+<ResponseField name="Users" type="ApiUsers">
+  Methods for managing users (natural and legal).
+</ResponseField>
+
+<ResponseField name="Wallets" type="ApiWallets">
+  Methods for managing wallets.
+</ResponseField>
+
+<ResponseField name="Transfers" type="ApiTransfers">
+  Methods for creating and managing transfers between wallets.
+</ResponseField>
+
+<ResponseField name="PayIns" type="ApiPayIns">
+  Methods for managing pay-ins (incoming payments).
+</ResponseField>
+
+<ResponseField name="PayOuts" type="ApiPayOuts">
+  Methods for managing pay-outs (outgoing payments to bank accounts).
+</ResponseField>
+
+<ResponseField name="Refunds" type="ApiRefunds">
+  Methods for managing refunds.
+</ResponseField>
+
+<ResponseField name="CardRegistrations" type="ApiCardRegistrations">
+  Methods for registering payment cards.
+</ResponseField>
+
+<ResponseField name="Cards" type="ApiCards">
+  Methods for managing registered cards.
+</ResponseField>
+
+<ResponseField name="CardPreAuthorizations" type="ApiCardPreAuthorizations">
+  Methods for managing card pre-authorizations.
+</ResponseField>
+
+<ResponseField name="Events" type="ApiEvents">
+  Methods for querying events.
+</ResponseField>
+
+<ResponseField name="Hooks" type="ApiHooks">
+  Methods for managing webhooks.
+</ResponseField>
+
+<ResponseField name="KycDocuments" type="ApiKycDocuments">
+  Methods for managing KYC documents.
+</ResponseField>
+
+<ResponseField name="Disputes" type="ApiDisputes">
+  Methods for managing disputes.
+</ResponseField>
+
+<ResponseField name="DisputeDocuments" type="ApiDisputeDocuments">
+  Methods for managing dispute documents.
+</ResponseField>
+
+<ResponseField name="Mandates" type="ApiMandates">
+  Methods for managing direct debit mandates.
+</ResponseField>
+
+<ResponseField name="Reports" type="ApiReports">
+  Methods for generating and retrieving reports.
+</ResponseField>
+
+<ResponseField name="ReportsV2" type="ApiReportsV2">
+  Methods for generating and retrieving reports (v2 API).
+</ResponseField>
+
+<ResponseField name="BankingAliases" type="ApiBankingAliases">
+  Methods for managing banking aliases.
+</ResponseField>
+
+<ResponseField name="BankAccounts" type="ApiBankAccounts">
+  Methods for managing bank accounts.
+</ResponseField>
+
+<ResponseField name="UboDeclarations" type="ApiUboDeclarations">
+  Methods for managing Ultimate Beneficial Owner (UBO) declarations.
+</ResponseField>
+
+<ResponseField name="Repudiations" type="ApiRepudiations">
+  Methods for managing repudiations.
+</ResponseField>
+
+<ResponseField name="VirtualAccounts" type="ApiVirtualAccounts">
+  Methods for managing virtual accounts.
+</ResponseField>
+
+<ResponseField name="Regulatory" type="ApiRegulatory">
+  Methods for accessing regulatory information.
+</ResponseField>
+
+<ResponseField name="Deposits" type="ApiDeposits">
+  Methods for managing deposits.
+</ResponseField>
+
+<ResponseField name="Conversions" type="ApiConversions">
+  Methods for instant currency conversions.
+</ResponseField>
+
+<ResponseField name="IdentityVerifications" type="ApiIdentityVerification">
+  Methods for managing identity verifications.
+</ResponseField>
+
+<ResponseField name="Recipients" type="ApiRecipients">
+  Methods for managing recipients.
+</ResponseField>
+
+<ResponseField name="Settlements" type="ApiSettlements">
+  Methods for managing settlements.
+</ResponseField>
+
+## Methods
+
+### setLogger()
+
+Sets a PSR-3 compatible logger for logging API requests and responses.
+
+<ParamField path="logger" type="Psr\Log\LoggerInterface" required>
+  A PSR-3 compatible logger instance.
+</ParamField>
+
+```php
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+
+$logger = new Logger('mangopay');
+$logger->pushHandler(new StreamHandler('/path/to/logs/mangopay.log', Logger::DEBUG));
+
+$api->setLogger($logger);
+```
+
+### getLogger()
+
+Retrieves the current logger instance.
+
+<ResponseField name="return" type="Psr\Log\LoggerInterface">
+  The current PSR-3 logger instance.
+</ResponseField>
+
+```php
+$logger = $api->getLogger();
+```
+
+### setConfig()
+
+Sets the configuration object for the API.
+
+<ParamField path="Config" type="\MangoPay\Libraries\Configuration" required>
+  The configuration object containing API credentials and settings.
+</ParamField>
+
+```php
+$config = new \MangoPay\Libraries\Configuration();
+$config->ClientId = 'your-client-id';
+$config->ClientPassword = 'your-api-key';
+$config->BaseUrl = 'https://api.mangopay.com';
+
+$api->setConfig($config);
+```
+
+### getConfig()
+
+Retrieves the current configuration object.
+
+<ResponseField name="return" type="\MangoPay\Libraries\Configuration">
+  The current configuration object.
+</ResponseField>
+
+```php
+$config = $api->getConfig();
+```
+
+### setHttpClient()
+
+Sets a custom HTTP client for making API requests.
+
+<ParamField path="httpClient" type="\MangoPay\Libraries\HttpBase" required>
+  A custom HTTP client instance extending HttpBase.
+</ParamField>
+
+```php
+$httpClient = new \MangoPay\Libraries\HttpCurl($api);
+$api->setHttpClient($httpClient);
+```
+
+### getHttpClient()
+
+Retrieves the current HTTP client instance.
+
+<ResponseField name="return" type="\MangoPay\Libraries\HttpBase">
+  The current HTTP client instance.
+</ResponseField>
+
+```php
+$httpClient = $api->getHttpClient();
+```
+
+## Example Usage
+
+```php
+use MangoPay\MangoPayApi;
+use MangoPay\Libraries\Configuration;
+
+// Initialize the API
+$api = new MangoPayApi();
+
+// Configure credentials
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+$api->Config->BaseUrl = 'https://api.sandbox.mangopay.com';
+$api->Config->TemporaryFolder = '/tmp/';
+
+// Access API managers
+$user = $api->Users->Get($userId);
+$wallet = $api->Wallets->Get($walletId);
+$payIn = $api->PayIns->Get($payInId);
+```

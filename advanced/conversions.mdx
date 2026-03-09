@@ -1,0 +1,335 @@
+---
+title: "Currency Conversions"
+description: "Convert funds between different currencies instantly or with guaranteed rates"
+icon: "money-bill-transfer"
+---
+
+## Overview
+
+The Mangopay PHP SDK provides powerful currency conversion capabilities, allowing you to convert funds between wallets in different currencies. You can perform instant conversions at market rates or use quoted conversions with guaranteed rates.
+
+## Getting Conversion Rates
+
+Check real-time market rates before performing conversions:
+
+```php
+$debitedCurrency = 'EUR';
+$creditedCurrency = 'GBP';
+
+$rate = $api->Conversions->GetConversionRate($debitedCurrency, $creditedCurrency);
+
+echo "Client Rate: " . $rate->ClientRate . "\n";
+echo "Market Rate: " . $rate->MarketRate . "\n";
+```
+
+## Instant Conversions
+
+Perform immediate conversions at the current market rate:
+
+```php
+use MangoPay\CreateInstantConversion;
+use MangoPay\Money;
+use MangoPay\CustomFees;
+
+// Setup wallets
+$debitedWalletId = 'wallet_eur_123456'; // EUR wallet
+$creditedWalletId = 'wallet_gbp_123456'; // GBP wallet
+$authorId = 'user_123456';
+
+// Create instant conversion
+$instantConversion = new CreateInstantConversion();
+$instantConversion->AuthorId = $authorId;
+$instantConversion->DebitedWalletId = $debitedWalletId;
+$instantConversion->CreditedWalletId = $creditedWalletId;
+
+// Set debited funds
+$debitedFunds = new Money();
+$debitedFunds->Currency = 'EUR';
+$debitedFunds->Amount = 7900; // 79.00 EUR
+$instantConversion->DebitedFunds = $debitedFunds;
+
+// Set credited funds (currency only, amount calculated by API)
+$creditedFunds = new Money();
+$creditedFunds->Currency = 'GBP';
+$instantConversion->CreditedFunds = $creditedFunds;
+
+// Optional: Add fees
+$fees = new CustomFees();
+$fees->Currency = 'EUR';
+$fees->Amount = 900; // 9.00 EUR
+$instantConversion->Fees = $fees;
+
+$instantConversion->Tag = "Order #12345 conversion";
+
+$result = $api->Conversions->CreateInstantConversion($instantConversion);
+
+echo "Conversion ID: " . $result->Id . "\n";
+echo "Status: " . $result->Status . "\n";
+echo "Credited Amount: " . $result->CreditedFunds->Amount . " " . $result->CreditedFunds->Currency . "\n";
+```
+
+## Quoted Conversions
+
+Use conversion quotes to guarantee exchange rates:
+
+### Step 1: Create a Conversion Quote
+
+```php
+use MangoPay\ConversionQuote;
+use MangoPay\Money;
+use MangoPay\UserMargin;
+
+$quote = new ConversionQuote();
+
+// Set credited funds (what you want to receive)
+$creditedFunds = new Money();
+$creditedFunds->Currency = 'GBP';
+$quote->CreditedFunds = $creditedFunds;
+
+// Set debited funds (what you're converting from)
+$debitedFunds = new Money();
+$debitedFunds->Currency = 'EUR';
+$debitedFunds->Amount = 5000; // 50.00 EUR
+$quote->DebitedFunds = $debitedFunds;
+
+// Set quote duration (in seconds)
+$quote->Duration = 300; // Quote valid for 5 minutes
+$quote->Tag = "Quote for order #12345";
+
+// Optional: Set user margin
+$userMargin = new UserMargin();
+$userMargin->Type = "PERCENTAGE";
+$userMargin->Value = 0.1; // 0.1% margin
+$quote->UserMargin = $userMargin;
+
+$createdQuote = $api->Conversions->CreateConversionQuote($quote);
+
+echo "Quote ID: " . $createdQuote->Id . "\n";
+echo "Client Rate: " . $createdQuote->ConversionRateResponse->ClientRate . "\n";
+echo "Expires: " . date('Y-m-d H:i:s', $createdQuote->ExpirationDate) . "\n";
+```
+
+### Step 2: Execute Quoted Conversion
+
+```php
+use MangoPay\CreateQuotedConversion;
+
+$quotedConversion = new CreateQuotedConversion();
+$quotedConversion->QuoteId = $createdQuote->Id;
+$quotedConversion->AuthorId = $authorId;
+$quotedConversion->DebitedWalletId = $debitedWalletId;
+$quotedConversion->CreditedWalletId = $creditedWalletId;
+
+$result = $api->Conversions->CreateQuotedConversion($quotedConversion);
+
+echo "Conversion Status: " . $result->Status . "\n";
+echo "Quote Used: " . $result->QuoteId . "\n";
+```
+
+## Client Wallets Conversions
+
+Convert between client fee and credit wallets:
+
+### Instant Client Wallet Conversion
+
+```php
+use MangoPay\CreateClientWalletsInstantConversion;
+use MangoPay\Money;
+
+$instantConversion = new CreateClientWalletsInstantConversion();
+$instantConversion->DebitedWalletType = 'FEES';
+$instantConversion->CreditedWalletType = 'FEES';
+
+$debitedFunds = new Money();
+$debitedFunds->Currency = 'EUR';
+$debitedFunds->Amount = 10000; // 100.00 EUR
+$instantConversion->DebitedFunds = $debitedFunds;
+
+$creditedFunds = new Money();
+$creditedFunds->Currency = 'USD';
+$instantConversion->CreditedFunds = $creditedFunds;
+
+$instantConversion->Tag = "Client wallet conversion";
+
+$result = $api->Conversions->CreateClientWalletsInstantConversion($instantConversion);
+```
+
+### Quoted Client Wallet Conversion
+
+```php
+use MangoPay\CreateClientWalletsQuotedConversion;
+
+// First create a quote (as shown above)
+$quote = $api->Conversions->CreateConversionQuote($quoteObject);
+
+// Then create the conversion
+$quotedConversion = new CreateClientWalletsQuotedConversion();
+$quotedConversion->QuoteId = $quote->Id;
+$quotedConversion->DebitedWalletType = 'FEES';
+$quotedConversion->CreditedWalletType = 'CREDIT';
+$quotedConversion->Tag = 'Client wallets quoted conversion';
+
+$result = $api->Conversions->CreateClientWalletsQuotedConversion($quotedConversion);
+```
+
+## Getting Conversion Details
+
+Retrieve information about a completed conversion:
+
+```php
+$conversionId = 'conversion_123456';
+$conversion = $api->Conversions->GetConversion($conversionId);
+
+echo "Status: " . $conversion->Status . "\n";
+echo "Type: " . $conversion->Type . "\n";
+echo "Debited: " . $conversion->DebitedFunds->Amount . " " . $conversion->DebitedFunds->Currency . "\n";
+echo "Credited: " . $conversion->CreditedFunds->Amount . " " . $conversion->CreditedFunds->Currency . "\n";
+echo "Fees: " . $conversion->Fees->Amount . " " . $conversion->Fees->Currency . "\n";
+```
+
+## Getting Quote Details
+
+Retrieve details of a conversion quote:
+
+```php
+$quoteId = 'quote_123456';
+$quote = $api->Conversions->GetConversionQuote($quoteId);
+
+echo "Status: " . $quote->Status . "\n";
+echo "Client Rate: " . $quote->ConversionRateResponse->ClientRate . "\n";
+echo "Market Rate: " . $quote->ConversionRateResponse->MarketRate . "\n";
+echo "Expires: " . date('Y-m-d H:i:s', $quote->ExpirationDate) . "\n";
+```
+
+## Understanding Fees
+
+Add custom fees to conversions:
+
+```php
+use MangoPay\CustomFees;
+
+// Fixed fee
+$fixedFees = new CustomFees();
+$fixedFees->Currency = 'EUR';
+$fixedFees->Amount = 100; // 1.00 EUR
+$fixedFees->Type = "FIXED";
+
+// Percentage fee
+$percentageFees = new CustomFees();
+$percentageFees->Currency = 'EUR';
+$percentageFees->Amount = 100; // 1%
+$percentageFees->Type = "PERCENTAGE";
+
+$instantConversion->Fees = $fixedFees;
+```
+
+## Conversion Response Details
+
+All conversion responses include detailed margin information:
+
+```php
+$result = $api->Conversions->CreateInstantConversion($instantConversion);
+
+// Access margin details
+echo "Mangopay Margin: " . $result->MarginsResponse->Mangopay . "\n";
+
+if ($result->MarginsResponse->User !== null) {
+    echo "User Margin: " . $result->MarginsResponse->User . "\n";
+}
+
+// Access fees
+echo "Requested Fees Type: " . $result->RequestedFees->Type . "\n";
+echo "Actual Fees: " . $result->Fees->Amount . "\n";
+```
+
+## Complete Workflow Example
+
+```php
+use MangoPay\MangoPayApi;
+
+$api = new MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+$api->Config->TemporaryFolder = '/tmp/';
+
+try {
+    // 1. Check current rate
+    $rate = $api->Conversions->GetConversionRate('EUR', 'GBP');
+    echo "Current rate: " . $rate->ClientRate . "\n";
+    
+    // 2. Create quote for guaranteed rate
+    $quote = new \MangoPay\ConversionQuote();
+    $debitedFunds = new \MangoPay\Money();
+    $debitedFunds->Currency = 'EUR';
+    $debitedFunds->Amount = 10000;
+    $quote->DebitedFunds = $debitedFunds;
+    
+    $creditedFunds = new \MangoPay\Money();
+    $creditedFunds->Currency = 'GBP';
+    $quote->CreditedFunds = $creditedFunds;
+    
+    $quote->Duration = 300;
+    $createdQuote = $api->Conversions->CreateConversionQuote($quote);
+    
+    // 3. Execute conversion with guaranteed rate
+    $conversion = new \MangoPay\CreateQuotedConversion();
+    $conversion->QuoteId = $createdQuote->Id;
+    $conversion->AuthorId = 'user_123456';
+    $conversion->DebitedWalletId = 'wallet_eur_123456';
+    $conversion->CreditedWalletId = 'wallet_gbp_123456';
+    
+    $result = $api->Conversions->CreateQuotedConversion($conversion);
+    
+    if ($result->Status === 'SUCCEEDED') {
+        echo "Conversion successful!\n";
+        echo "Converted: " . $result->DebitedFunds->Amount . " EUR\n";
+        echo "Received: " . $result->CreditedFunds->Amount . " GBP\n";
+    }
+    
+} catch (\MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->getMessage();
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Quotes for Large Amounts" icon="shield-check">
+    Use quoted conversions for larger amounts to protect against rate fluctuations.
+  </Card>
+  
+  <Card title="Monitor Quote Expiration" icon="clock">
+    Quotes have a limited duration - execute conversions before they expire.
+  </Card>
+  
+  <Card title="Check Wallet Currencies" icon="wallet">
+    Ensure source and destination wallets have the correct currencies.
+  </Card>
+  
+  <Card title="Handle Errors Gracefully" icon="triangle-exclamation">
+    Always wrap conversion calls in try-catch blocks to handle API errors.
+  </Card>
+</CardGroup>
+
+## Conversion Statuses
+
+- `SUCCEEDED` - Conversion completed successfully
+- `FAILED` - Conversion failed
+
+## Quote Statuses
+
+- `ACTIVE` - Quote is valid and can be used
+- `EXECUTED` - Quote has been used for a conversion
+- `EXPIRED` - Quote has expired and cannot be used
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Wallets" icon="wallet" href="/api-reference/wallets">
+    Learn about creating and managing wallets
+  </Card>
+  
+  <Card title="Transactions" icon="exchange-alt" href="/api-reference/transactions">
+    View conversion transactions
+  </Card>
+</CardGroup>

@@ -1,0 +1,429 @@
+---
+title: 'Configuration'
+description: 'Configure the Mangopay PHP SDK with credentials and environment settings'
+---
+
+## Configuration Overview
+
+The Mangopay PHP SDK uses the `Configuration` class to manage API credentials, environment settings, and HTTP client behavior. All configuration is accessed through the `$api->Config` property.
+
+## Basic Configuration
+
+At minimum, you must configure your API credentials and temporary folder:
+
+```php
+require_once 'vendor/autoload.php';
+
+use MangoPay\MangoPayApi;
+
+$api = new MangoPayApi();
+
+// Required configuration
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+$api->Config->TemporaryFolder = '/tmp/mangopay/';
+```
+
+<Warning>
+  Never commit your API credentials to version control. Use environment variables or secure configuration files.
+</Warning>
+
+## Required Configuration Properties
+
+### ClientId
+
+**Type:** `string`  
+**Required:** Yes
+
+Your Mangopay Client ID obtained from your dashboard.
+
+```php
+$api->Config->ClientId = 'your-client-id';
+```
+
+### ClientPassword
+
+**Type:** `string`  
+**Required:** Yes
+
+Your Mangopay API key (also called Client Password). This is your authentication secret.
+
+```php
+$api->Config->ClientPassword = 'your-api-key';
+```
+
+<Tip>
+  Keep separate credentials for sandbox and production environments. Never use production credentials in development.
+</Tip>
+
+### TemporaryFolder
+
+**Type:** `string`  
+**Required:** Yes
+
+Absolute path to a writable folder where the SDK stores temporary files, including OAuth tokens.
+
+```php
+$api->Config->TemporaryFolder = '/tmp/mangopay/';
+```
+
+<Warning>
+  **Security Requirements:**
+  - Must be **outside your web root** (not publicly accessible)
+  - Must have **write permissions** for the PHP process
+  - Use **different folders** for sandbox and production environments
+  - Common choices: `/tmp/`, `/var/tmp/`, or a dedicated private directory
+</Warning>
+
+## Environment Configuration
+
+### BaseUrl
+
+**Type:** `string`  
+**Default:** `'https://api.sandbox.mangopay.com'`
+
+The API endpoint URL. The SDK defaults to the sandbox environment.
+
+<CodeGroup>
+```php Sandbox (Default)
+// Sandbox is the default, no configuration needed
+$api = new MangoPayApi();
+// BaseUrl is automatically: https://api.sandbox.mangopay.com
+```
+
+```php Production
+// For production, explicitly set BaseUrl
+$api->Config->BaseUrl = 'https://api.mangopay.com';
+```
+</CodeGroup>
+
+<Note>
+  Always test thoroughly in the sandbox environment before switching to production.
+</Note>
+
+## HTTP Client Configuration
+
+The SDK provides several options to customize HTTP client behavior:
+
+### CurlConnectionTimeout
+
+**Type:** `integer`  
+**Default:** `30`  
+**Unit:** Seconds
+
+Maximum time to wait for a connection to establish.
+
+```php
+$api->Config->CurlConnectionTimeout = 30;
+```
+
+### CurlResponseTimeout
+
+**Type:** `integer`  
+**Default:** `30`  
+**Unit:** Seconds
+
+Maximum time to wait for a response after connection is established.
+
+```php
+$api->Config->CurlResponseTimeout = 30;
+```
+
+<Info>
+  Increase timeout values if you experience timeout errors with large file uploads or slow network connections.
+</Info>
+
+### CertificatesFilePath
+
+**Type:** `string`  
+**Default:** `''` (empty string)
+
+Absolute path to a file containing one or more certificates to verify the peer with.
+
+```php
+// Verify SSL certificate with custom CA bundle
+$api->Config->CertificatesFilePath = '/path/to/cacert.pem';
+```
+
+<Warning>
+  If empty, peer certificate verification is **disabled**. For production environments, consider providing a certificate bundle for enhanced security.
+</Warning>
+
+## Advanced Configuration
+
+### Proxy Configuration
+
+If your server requires a proxy for outbound connections:
+
+#### HostProxy
+
+**Type:** `string`  
+**Default:** `null`
+
+Proxy host and port.
+
+```php
+$api->Config->HostProxy = 'proxy.example.com:8080';
+```
+
+#### UserPasswordProxy
+
+**Type:** `string`  
+**Default:** `null`
+
+Proxy authentication credentials in `username:password` format.
+
+```php
+$api->Config->UserPasswordProxy = 'proxyuser:proxypassword';
+```
+
+### Debug Mode
+
+**Type:** `boolean`  
+**Default:** `false`
+
+<Warning>
+  **Internal use only.** Enables verbose logging of all requests and responses. Do not enable in production as it may log sensitive data.
+</Warning>
+
+```php
+// For debugging (development only)
+$api->Config->DebugMode = true;
+```
+
+### LogClass
+
+**Type:** `string`  
+**Default:** `'MangoPay\Libraries\Logs'`
+
+The class used for logging when `DebugMode` is enabled.
+
+```php
+$api->Config->LogClass = 'MangoPay\Libraries\Logs';
+```
+
+### UKHeaderFlag
+
+**Type:** `boolean`  
+**Default:** `false`
+
+<Warning>
+  **Deprecated.** Will be removed in future versions. Set to `true` for UK traffic.
+</Warning>
+
+## Complete Configuration Example
+
+Here's a comprehensive configuration example with all commonly used options:
+
+```php
+require_once 'vendor/autoload.php';
+
+use MangoPay\MangoPayApi;
+
+$api = new MangoPayApi();
+
+// Required: Authentication
+$api->Config->ClientId = getenv('MANGOPAY_CLIENT_ID');
+$api->Config->ClientPassword = getenv('MANGOPAY_API_KEY');
+$api->Config->TemporaryFolder = '/var/tmp/mangopay/';
+
+// Required: Environment
+$api->Config->BaseUrl = 'https://api.sandbox.mangopay.com';
+
+// Optional: HTTP client tuning
+$api->Config->CurlConnectionTimeout = 30;
+$api->Config->CurlResponseTimeout = 30;
+$api->Config->CertificatesFilePath = '/etc/ssl/certs/ca-bundle.crt';
+
+// Optional: Proxy (if needed)
+$api->Config->HostProxy = 'proxy.example.com:8080';
+$api->Config->UserPasswordProxy = 'username:password';
+
+// Now ready to make API calls
+try {
+    $users = $api->Users->GetAll();
+    echo "Configuration successful!\n";
+} catch (\Exception $e) {
+    echo "Configuration error: " . $e->getMessage() . "\n";
+}
+```
+
+## Configuration Best Practices
+
+<Steps>
+  <Step title="Use Environment Variables">
+    Store sensitive credentials in environment variables, not in code:
+    
+    ```php
+    $api->Config->ClientId = getenv('MANGOPAY_CLIENT_ID');
+    $api->Config->ClientPassword = getenv('MANGOPAY_API_KEY');
+    ```
+  </Step>
+  
+  <Step title="Separate Environments">
+    Maintain separate configurations for development, staging, and production:
+    
+    ```php
+    if (APP_ENV === 'production') {
+        $api->Config->BaseUrl = 'https://api.mangopay.com';
+        $api->Config->TemporaryFolder = '/var/tmp/mangopay-prod/';
+    } else {
+        $api->Config->BaseUrl = 'https://api.sandbox.mangopay.com';
+        $api->Config->TemporaryFolder = '/var/tmp/mangopay-sandbox/';
+    }
+    ```
+  </Step>
+  
+  <Step title="Secure the Temporary Folder">
+    Ensure your temporary folder is not web-accessible:
+    
+    ```bash
+    # Create secure temporary directory
+    mkdir -p /var/tmp/mangopay
+    chmod 700 /var/tmp/mangopay
+    chown www-data:www-data /var/tmp/mangopay
+    ```
+  </Step>
+  
+  <Step title="Handle Token Regeneration">
+    If you encounter authentication issues after SDK updates, clear the temporary folder:
+    
+    ```php
+    // In your deployment script
+    $tempFolder = $api->Config->TemporaryFolder;
+    array_map('unlink', glob("$tempFolder/*"));
+    ```
+  </Step>
+</Steps>
+
+## Configuration in Different Frameworks
+
+### Symfony Service Configuration
+
+```php
+namespace App\Service;
+
+use MangoPay\MangoPayApi;
+
+class MangoPayService
+{
+    private $api;
+    
+    public function __construct()
+    {
+        $this->api = new MangoPayApi();
+        $this->api->Config->ClientId = $_ENV['MANGOPAY_CLIENT_ID'];
+        $this->api->Config->ClientPassword = $_ENV['MANGOPAY_API_KEY'];
+        $this->api->Config->TemporaryFolder = '/var/tmp/mangopay/';
+        $this->api->Config->BaseUrl = $_ENV['MANGOPAY_BASE_URL'];
+    }
+    
+    public function getApi()
+    {
+        return $this->api;
+    }
+}
+```
+
+### Laravel Service Provider
+
+```php
+namespace App\Providers;
+
+use Illuminate\Support\ServiceProvider;
+use MangoPay\MangoPayApi;
+
+class MangoPayServiceProvider extends ServiceProvider
+{
+    public function register()
+    {
+        $this->app->singleton(MangoPayApi::class, function ($app) {
+            $api = new MangoPayApi();
+            $api->Config->ClientId = config('mangopay.client_id');
+            $api->Config->ClientPassword = config('mangopay.api_key');
+            $api->Config->TemporaryFolder = storage_path('app/mangopay/');
+            $api->Config->BaseUrl = config('mangopay.base_url');
+            return $api;
+        });
+    }
+}
+```
+
+## Verifying Configuration
+
+Test your configuration with a simple API call:
+
+```php
+try {
+    // Test API connection
+    $pagination = new \MangoPay\Pagination(1, 1);
+    $users = $api->Users->GetAll($pagination);
+    
+    echo "✓ Configuration successful!\n";
+    echo "✓ Connected to: " . $api->Config->BaseUrl . "\n";
+    echo "✓ Temporary folder: " . $api->Config->TemporaryFolder . "\n";
+    
+} catch (\MangoPay\Libraries\ResponseException $e) {
+    echo "✗ API Error: " . $e->GetMessage() . "\n";
+    echo "  Check your ClientId and ClientPassword\n";
+} catch (\MangoPay\Libraries\Exception $e) {
+    echo "✗ SDK Error: " . $e->GetMessage() . "\n";
+    echo "  Check your TemporaryFolder permissions\n";
+}
+```
+
+## Troubleshooting
+
+### Authentication Failures
+
+<Warning>
+  **Problem:** "Authentication failed" or 401 errors
+  
+  **Solutions:**
+  - Verify `ClientId` and `ClientPassword` are correct
+  - Ensure you're using credentials for the correct environment (sandbox vs. production)
+  - Check that `BaseUrl` matches your credential environment
+  - Clear the temporary folder and retry
+</Warning>
+
+### Permission Errors
+
+<Warning>
+  **Problem:** "Permission denied" writing to temporary folder
+  
+  **Solutions:**
+  - Verify the folder exists: `mkdir -p /tmp/mangopay/`
+  - Check write permissions: `chmod 755 /tmp/mangopay/`
+  - Ensure the PHP process user can write: `chown www-data /tmp/mangopay/`
+  - Verify the folder is not in web root
+</Warning>
+
+### Timeout Issues
+
+<Info>
+  **Problem:** Request timeouts during large operations
+  
+  **Solutions:**
+  - Increase `CurlConnectionTimeout` and `CurlResponseTimeout`
+  - Check network connectivity to Mangopay servers
+  - Consider proxy configuration if behind a firewall
+</Info>
+
+## Next Steps
+
+With configuration complete, you're ready to start building:
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Create your first user and make API calls
+  </Card>
+  <Card title="Users" icon="user" href="/users">
+    Learn about user management and KYC
+  </Card>
+  <Card title="Logging" icon="file-lines" href="/logging">
+    Configure PSR-3 logging with Monolog or other loggers
+  </Card>
+  <Card title="Rate Limiting" icon="gauge" href="/rate-limiting">
+    Monitor and handle API rate limits
+  </Card>
+</CardGroup>

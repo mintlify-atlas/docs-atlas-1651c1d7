@@ -1,0 +1,358 @@
+---
+title: 'Transfers'
+description: 'API methods for managing transfers between wallets in the Mangopay PHP SDK'
+---
+
+## Overview
+
+The `ApiTransfers` class provides methods to create transfers between wallets, retrieve transfer details, and manage transfer refunds. Transfers allow you to move funds from one wallet to another within your Mangopay platform.
+
+## Methods
+
+### Create
+
+Create a new transfer between two wallets.
+
+```php
+public function Create($transfer, $idempotencyKey = null)
+```
+
+<ParamField path="transfer" type="Transfer" required>
+  The transfer object to create
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key to prevent duplicate requests
+</ParamField>
+
+**Returns:** `Transfer` - The created transfer object
+
+**Example:**
+
+```php
+$api = new MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$transfer = new MangoPay\Transfer();
+$transfer->AuthorId = 'user_id_123';
+$transfer->CreditedUserId = 'user_id_456';
+$transfer->DebitedWalletId = 'wallet_id_source';
+$transfer->CreditedWalletId = 'wallet_id_destination';
+
+$transfer->DebitedFunds = new MangoPay\Money();
+$transfer->DebitedFunds->Currency = 'EUR';
+$transfer->DebitedFunds->Amount = 1000; // €10.00
+
+$transfer->Fees = new MangoPay\Money();
+$transfer->Fees->Currency = 'EUR';
+$transfer->Fees->Amount = 0; // No fees
+
+$transfer->Tag = 'payment for services';
+
+$createdTransfer = $api->Transfers->Create($transfer);
+echo $createdTransfer->Id;
+echo $createdTransfer->Status;
+```
+
+---
+
+### Get
+
+Retrieve a transfer by its ID.
+
+```php
+public function Get($transferId)
+```
+
+<ParamField path="transferId" type="string" required>
+  The transfer identifier
+</ParamField>
+
+**Returns:** `Transfer` - The transfer object
+
+**Example:**
+
+```php
+$api = new MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$transfer = $api->Transfers->Get('transfer_id_123');
+echo 'Status: ' . $transfer->Status;
+echo 'Amount: ' . $transfer->DebitedFunds->Amount;
+echo 'Result: ' . $transfer->ResultMessage;
+```
+
+---
+
+### CreateRefund
+
+Create a refund for a transfer.
+
+```php
+public function CreateRefund($transferId, $refund, $idempotencyKey = null)
+```
+
+<ParamField path="transferId" type="string" required>
+  The transfer identifier to refund
+</ParamField>
+
+<ParamField path="refund" type="Refund" required>
+  The refund object to create
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key to prevent duplicate requests
+</ParamField>
+
+**Returns:** `Refund` - The created refund object
+
+**Example:**
+
+```php
+$api = new MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$refund = new MangoPay\Refund();
+$refund->AuthorId = 'user_id_123';
+$refund->Tag = 'refund for transfer';
+
+$createdRefund = $api->Transfers->CreateRefund('transfer_id_123', $refund);
+echo $createdRefund->Id;
+echo $createdRefund->Status;
+```
+
+---
+
+### GetRefunds
+
+Retrieve all refunds for a specific transfer.
+
+```php
+public function GetRefunds($transferId, & $pagination = null, $filter = null, $sorting = null)
+```
+
+<ParamField path="transferId" type="string" required>
+  The transfer identifier
+</ParamField>
+
+<ParamField path="pagination" type="Pagination">
+  Pagination object to control page size and number
+</ParamField>
+
+<ParamField path="filter" type="FilterRefunds">
+  Filter object to filter refunds by specific criteria
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting object to sort the results
+</ParamField>
+
+**Returns:** `Refund[]` - Array of refund objects
+
+**Example:**
+
+```php
+$api = new MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$pagination = new MangoPay\Pagination(1, 10);
+$refunds = $api->Transfers->GetRefunds('transfer_id_123', $pagination);
+
+foreach ($refunds as $refund) {
+    echo $refund->Id . ' - ' . $refund->Status;
+}
+
+echo 'Total items: ' . $pagination->TotalItems;
+```
+
+---
+
+## Transfer Entity
+
+The `Transfer` class extends the `Transaction` class and represents a transfer between wallets.
+
+### Properties
+
+<ResponseField name="Id" type="string">
+  Unique identifier for the transfer (read-only)
+</ResponseField>
+
+<ResponseField name="Tag" type="string">
+  Custom data for the transfer
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of when the transfer was created (read-only)
+</ResponseField>
+
+<ResponseField name="AuthorId" type="string">
+  The ID of the user who initiated the transfer
+</ResponseField>
+
+<ResponseField name="CreditedUserId" type="string">
+  The ID of the user who receives the funds
+</ResponseField>
+
+<ResponseField name="DebitedFunds" type="Money">
+  The amount debited from the source wallet
+  
+  Contains:
+  - `Amount` (int): The amount in the smallest currency unit
+  - `Currency` (string): ISO 4217 currency code
+</ResponseField>
+
+<ResponseField name="CreditedFunds" type="Money">
+  The amount credited to the destination wallet
+  
+  Contains:
+  - `Amount` (int): The amount in the smallest currency unit
+  - `Currency` (string): ISO 4217 currency code
+</ResponseField>
+
+<ResponseField name="Fees" type="Money">
+  The fees taken by the platform
+  
+  Contains:
+  - `Amount` (int): The fee amount in the smallest currency unit
+  - `Currency` (string): ISO 4217 currency code
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  The status of the transfer (read-only)
+  
+  Possible values:
+  - `CREATED` - Transfer has been created
+  - `SUCCEEDED` - Transfer completed successfully
+  - `FAILED` - Transfer failed
+</ResponseField>
+
+<ResponseField name="ResultCode" type="string">
+  The result code of the transfer (read-only)
+</ResponseField>
+
+<ResponseField name="ResultMessage" type="string">
+  The result message explaining the result code (read-only)
+</ResponseField>
+
+<ResponseField name="ExecutionDate" type="int">
+  Unix timestamp of when the transfer was executed (read-only)
+</ResponseField>
+
+<ResponseField name="Type" type="string">
+  The type of transaction (always "TRANSFER" for transfers)
+</ResponseField>
+
+<ResponseField name="Nature" type="string">
+  The nature of the transaction
+</ResponseField>
+
+<ResponseField name="DebitedWalletId" type="string">
+  The ID of the wallet from which funds are debited
+</ResponseField>
+
+<ResponseField name="CreditedWalletId" type="string">
+  The ID of the wallet to which funds are credited
+</ResponseField>
+
+<ResponseField name="DepositId" type="string">
+  The ID of the related deposit, if applicable
+</ResponseField>
+
+<ResponseField name="ScaContext" type="string">
+  Strong Customer Authentication context for the transfer
+</ResponseField>
+
+<ResponseField name="PendingUserAction" type="PendingUserAction">
+  Information about any pending user action required (e.g., SCA redirect)
+</ResponseField>
+
+### Example Object
+
+```php
+$transfer = new MangoPay\Transfer();
+$transfer->AuthorId = 'user_123';
+$transfer->CreditedUserId = 'user_456';
+$transfer->DebitedWalletId = 'wallet_source';
+$transfer->CreditedWalletId = 'wallet_destination';
+
+// Set debited funds
+$transfer->DebitedFunds = new MangoPay\Money();
+$transfer->DebitedFunds->Currency = 'EUR';
+$transfer->DebitedFunds->Amount = 5000; // €50.00
+
+// Set fees (if any)
+$transfer->Fees = new MangoPay\Money();
+$transfer->Fees->Currency = 'EUR';
+$transfer->Fees->Amount = 100; // €1.00
+
+$transfer->Tag = 'Monthly payment';
+```
+
+### Read-Only Properties
+
+The following properties are read-only and cannot be modified:
+- `Id`
+- `CreationDate`
+- `Status`
+- `ResultCode`
+- `ResultMessage`
+- `ExecutionDate`
+
+### Money Object
+
+The `Money` object is used throughout transfers to represent monetary values:
+
+```php
+$money = new MangoPay\Money();
+$money->Currency = 'EUR'; // ISO 4217 currency code
+$money->Amount = 1000;     // Amount in smallest unit (cents)
+```
+
+<Note>
+  Amounts are always represented in the smallest currency unit. For example:
+  - €10.00 = 1000 cents
+  - $25.50 = 2550 cents
+  - £100.00 = 10000 pence
+</Note>
+
+### Transfer Flow
+
+1. **Create Transfer**: Use `Create()` to initiate a transfer between two wallets
+2. **Check Status**: Use `Get()` to check the transfer status
+3. **Handle SCA**: If `PendingUserAction` is present, redirect the user for authentication
+4. **Refund (if needed)**: Use `CreateRefund()` to refund a transfer
+5. **Track Refunds**: Use `GetRefunds()` to list all refunds for a transfer
+
+```php
+// Complete transfer example
+$api = new MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+// Create transfer
+$transfer = new MangoPay\Transfer();
+$transfer->AuthorId = 'user_123';
+$transfer->CreditedUserId = 'user_456';
+$transfer->DebitedWalletId = 'wallet_source';
+$transfer->CreditedWalletId = 'wallet_destination';
+
+$transfer->DebitedFunds = new MangoPay\Money();
+$transfer->DebitedFunds->Currency = 'EUR';
+$transfer->DebitedFunds->Amount = 1000;
+
+$transfer->Fees = new MangoPay\Money();
+$transfer->Fees->Currency = 'EUR';
+$transfer->Fees->Amount = 0;
+
+$result = $api->Transfers->Create($transfer);
+
+if ($result->Status == 'SUCCEEDED') {
+    echo 'Transfer completed successfully';
+} elseif ($result->Status == 'FAILED') {
+    echo 'Transfer failed: ' . $result->ResultMessage;
+}
+```

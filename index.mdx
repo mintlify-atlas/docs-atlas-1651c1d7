@@ -1,97 +1,194 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Mangopay PHP SDK"
+description: "PHP client library for integrating with the Mangopay payment platform API"
 ---
 
-## Setting up
+## Welcome to Mangopay PHP SDK
 
-Get your documentation site up and running in minutes.
+The Mangopay PHP SDK provides a complete PHP client library for integrating with the Mangopay REST API v2.01+. Build powerful payment solutions with support for user management, wallets, transfers, card payments, bank accounts, and comprehensive compliance features.
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
+<CardGroup cols={2}>
   <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
+    title="Quickstart"
+    icon="rocket"
+    href="/quickstart"
   >
-    Edit your docs locally and preview them in real time.
+    Get up and running with the SDK in minutes
   </Card>
   <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
+    title="Installation"
+    icon="download"
+    href="/installation"
   >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+    Install via Composer or manual download
   </Card>
   <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
+    title="Configuration"
+    icon="gear"
+    href="/configuration"
   >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
-
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+    Configure your API credentials and settings
   </Card>
   <Card
-    title="Code samples"
+    title="API Reference"
     icon="code"
-    href="/essentials/code"
+    href="/api/mangopayapi"
   >
-    Add sample code to demonstrate how to use your product.
+    Complete API documentation for all SDK features
+  </Card>
+</CardGroup>
+
+## Key Features
+
+The SDK provides comprehensive coverage of the Mangopay platform:
+
+<CardGroup cols={2}>
+  <Card
+    title="User Management"
+    icon="users"
+    href="/concepts/users"
+  >
+    Create and manage natural and legal users with full KYC support
   </Card>
   <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
+    title="Payment Processing"
+    icon="credit-card"
+    href="/concepts/payment-flows"
   >
-    Display images and other media.
+    Process PayIns, PayOuts, card payments, and bank transfers
   </Card>
   <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
+    title="Wallets & Transfers"
+    icon="wallet"
+    href="/concepts/wallets"
   >
-    Write once and reuse across your docs.
+    Manage user wallets and handle fund transfers
   </Card>
-</Columns>
+  <Card
+    title="Compliance & KYC"
+    icon="shield-check"
+    href="/guides/kyc-documents"
+  >
+    Handle document verification and regulatory compliance
+  </Card>
+  <Card
+    title="Dispute Management"
+    icon="scale-balanced"
+    href="/advanced/disputes"
+  >
+    Manage chargebacks and dispute resolution
+  </Card>
+  <Card
+    title="Webhooks & Events"
+    icon="webhook"
+    href="/guides/webhooks"
+  >
+    Real-time notifications for payment events
+  </Card>
+</CardGroup>
 
-## Need inspiration?
+## Quick Example
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+Get started with a simple example:
+
+```php
+<?php
+require_once 'vendor/autoload.php';
+
+$api = new MangoPay\MangoPayApi();
+
+// Configure credentials
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-client-password';
+$api->Config->TemporaryFolder = '/tmp/';
+
+// Create a user
+$user = new MangoPay\UserNatural();
+$user->FirstName = 'John';
+$user->LastName = 'Doe';
+$user->Email = 'john.doe@example.com';
+$user->Birthday = 1463496101;
+$user->Nationality = 'FR';
+$user->CountryOfResidence = 'FR';
+
+try {
+    $createdUser = $api->Users->Create($user);
+    echo "User created with ID: " . $createdUser->Id;
+} catch(MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Popular Guides
+
+<CardGroup cols={2}>
+  <Card
+    title="Creating Users"
+    icon="user-plus"
+    href="/guides/creating-users"
+  >
+    Learn how to create and manage natural and legal users
+  </Card>
+  <Card
+    title="Processing PayIns"
+    icon="arrow-down-to-line"
+    href="/guides/processing-payins"
+  >
+    Accept payments from various sources
+  </Card>
+  <Card
+    title="Card Payments"
+    icon="credit-card"
+    href="/guides/card-payments"
+  >
+    Implement card payment flows with 3DS authentication
+  </Card>
+  <Card
+    title="Bank Accounts"
+    icon="building-columns"
+    href="/guides/bank-accounts"
+  >
+    Manage user bank accounts for payouts
+  </Card>
+</CardGroup>
+
+## Requirements
+
+- PHP 5.6 or newer
+- cURL extension (enabled by default)
+- OpenSSL extension (enabled by default)
+- PSR/Log library (v1.0, v2.0, or v3.0)
+- Composer (recommended for dependency management)
+
+## Support
+
+<CardGroup cols={2}>
+  <Card
+    title="GitHub Repository"
+    icon="github"
+    href="https://github.com/Mangopay/mangopay4-php-sdk"
+  >
+    View source code and report issues
+  </Card>
+  <Card
+    title="Changelog"
+    icon="clock-rotate-left"
+    href="/resources/changelog"
+  >
+    See what's new in the latest releases
+  </Card>
+  <Card
+    title="Troubleshooting"
+    icon="life-ring"
+    href="/resources/troubleshooting"
+  >
+    Common issues and solutions
+  </Card>
+  <Card
+    title="Contributing"
+    icon="code-pull-request"
+    href="/resources/contributing"
+  >
+    Learn how to contribute to the SDK
+  </Card>
+</CardGroup>

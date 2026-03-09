@@ -1,0 +1,408 @@
+---
+title: Migration Guide
+description: Guide for migrating between major versions of the Mangopay PHP SDK
+---
+
+This guide helps you migrate between major versions of the Mangopay PHP SDK and understand breaking changes that may affect your integration.
+
+## Migrating to v3.50.x
+
+### Breaking Changes in FX Conversions
+
+Version 3.50.0 introduced breaking changes to the FX conversion fees structure to support percentage-based fees.
+
+#### CustomFees Object
+
+The `Fees` parameter type has changed from `Money` to `CustomFees` for instant conversions and conversion quotes.
+
+**Before (v3.49.x and earlier):**
+
+```php
+use MangoPay\Money;
+
+$conversion = new \MangoPay\CreateInstantConversion();
+$conversion->DebitedFunds = new Money();
+$conversion->DebitedFunds->Currency = 'EUR';
+$conversion->DebitedFunds->Amount = 1000;
+
+// Fees as Money object
+$conversion->Fees = new Money();
+$conversion->Fees->Currency = 'EUR';
+$conversion->Fees->Amount = 10;
+
+$result = $api->Conversions->CreateInstantConversion($conversion);
+```
+
+**After (v3.50.0+):**
+
+```php
+use MangoPay\Money;
+use MangoPay\CustomFees;
+
+$conversion = new \MangoPay\CreateInstantConversion();
+$conversion->DebitedFunds = new Money();
+$conversion->DebitedFunds->Currency = 'EUR';
+$conversion->DebitedFunds->Amount = 1000;
+
+// Fees as CustomFees object
+$conversion->Fees = new CustomFees();
+$conversion->Fees->Type = 'FIXED'; // or 'PERCENTAGE'
+$conversion->Fees->Value = 10; // Fixed amount or percentage value
+
+$result = $api->Conversions->CreateInstantConversion($conversion);
+```
+
+#### New Properties
+
+The following new properties are available:
+
+- `RequestedFees` on `ConversionQuote` and `Conversion`
+- `UserMargin` on `CreateInstantConversion` and `ConversionQuote`
+- `MarginsResponse` on `Conversion` and `ConversionQuote`
+
+**Example with User Margin:**
+
+```php
+$conversion = new \MangoPay\CreateInstantConversion();
+$conversion->DebitedFunds = new Money();
+$conversion->DebitedFunds->Currency = 'EUR';
+$conversion->DebitedFunds->Amount = 1000;
+
+// Set custom user margin (in basis points)
+$conversion->UserMargin = 50; // 0.5%
+
+$result = $api->Conversions->CreateInstantConversion($conversion);
+```
+
+### Breaking Changes in Settlement Endpoints
+
+Version 3.50.0 changed the Settlement upload workflow for the Echo feature.
+
+#### Upload Method Changes
+
+**Before (v3.49.x and earlier):**
+
+```php
+// Direct upload method
+$api->Settlements->upload($settlementId, $filePath);
+
+// Direct update method
+$api->Settlements->update($settlementId, $settlement);
+```
+
+**After (v3.50.0+):**
+
+```php
+// Step 1: Generate upload URL
+$uploadUrl = $api->Settlements->GenerateUploadUrl($settlementId, 'filename.csv');
+
+// Step 2: Upload file to the URL (using your preferred HTTP client)
+// Example with cURL:
+$ch = curl_init($uploadUrl->UploadUrl);
+curl_setopt($ch, CURLOPT_PUT, true);
+curl_setopt($ch, CURLOPT_INFILE, fopen($filePath, 'r'));
+curl_setopt($ch, CURLOPT_INFILESIZE, filesize($filePath));
+curl_exec($ch);
+curl_close($ch);
+
+// For generating a new upload URL:
+$newUploadUrl = $api->Settlements->GenerateNewUploadUrl($settlementId, 'new-filename.csv');
+```
+
+#### New Settlement Properties
+
+The `Settlement` object now includes:
+
+- `FileName` - The name of the uploaded file
+- `UploadUrl` - The URL where the file should be uploaded
+
+## Migrating to v3.48.x
+
+### V4 Naming Convention
+
+Version 3.48.0 migrated to the V4 naming convention. The package name changed from `mangopay/php-sdk` to `mangopay4/php-sdk`.
+
+#### Composer Update
+
+**Update your composer.json:**
+
+```json
+{
+  "require": {
+    "mangopay4/php-sdk": "^3.48"
+  }
+}
+```
+
+**Then run:**
+
+```bash
+composer update mangopay4/php-sdk
+```
+
+<Note>
+The namespace (`MangoPay`) and class names remain unchanged. Only the package name changed.
+</Note>
+
+## Migrating to v3.45.x
+
+### GetSchema Type Changes
+
+Version 3.45.0 introduced type casting changes in the `GetSchema` method.
+
+<Warning>
+This may be a breaking change if your integration relies on the `stdClass` returned previously.
+</Warning>
+
+**Before (v3.44.x and earlier):**
+
+```php
+// GetSchema returned stdClass objects
+$schema = $api->Recipients->GetSchema('GB');
+// $schema properties were stdClass instances
+```
+
+**After (v3.45.0+):**
+
+```php
+// GetSchema now returns properly typed arrays
+$schema = $api->Recipients->GetSchema('GB');
+// $schema properties are now typed arrays instead of stdClass
+```
+
+**Migration Strategy:**
+
+If your code depends on `stdClass` behavior:
+
+```php
+// Before
+if ($schema->someProperty instanceof \stdClass) {
+    // Handle stdClass
+}
+
+// After - check for array instead
+if (is_array($schema->someProperty)) {
+    // Handle array
+}
+```
+
+### PendingUserAction Nullability
+
+The `PendingUserAction` property is now nullable:
+
+```php
+// Always check for null before accessing
+if ($user->PendingUserAction !== null) {
+    $redirectUrl = $user->PendingUserAction->RedirectUrl;
+}
+```
+
+## Migrating to v3.35.x
+
+### User-Agent Header Format
+
+Version 3.35.1 standardized the User-Agent header format.
+
+**New format:**
+```
+User-Agent: Mangopay-SDK/SDKVersion (Language/LanguageVersion)
+```
+
+This change is automatic and requires no code modifications.
+
+### RecurringPayInRegistration TotalAmount
+
+Fixed the `TotalAmount` property type from `int` to `Money`:
+
+**Before (v3.34.x and earlier):**
+
+```php
+$registration->TotalAmount = 10000; // Integer
+```
+
+**After (v3.35.0+):**
+
+```php
+use MangoPay\Money;
+
+$registration->TotalAmount = new Money();
+$registration->TotalAmount->Currency = 'EUR';
+$registration->TotalAmount->Amount = 10000;
+```
+
+## Migrating to v3.18.x
+
+### Partnership Legal Person Type
+
+Version 3.18.0 added the `PARTNERSHIP` legal person type.
+
+<Warning>
+**Important:** Changing an existing user's `LegalPersonType` to `PARTNERSHIP` will:
+- Downgrade KYC verification to Light (default)
+- Flag the REGISTRATION_PROOF document as OUT_OF_DATE
+</Warning>
+
+**Creating a Partnership User:**
+
+```php
+use MangoPay\UserLegal;
+use MangoPay\LegalPersonType;
+use MangoPay\Address;
+
+$user = new UserLegal();
+$user->LegalPersonType = LegalPersonType::Partnership;
+$user->Name = "Example Partnership";
+$user->Email = "partnership@example.com";
+
+$user->LegalRepresentativeFirstName = "John";
+$user->LegalRepresentativeLastName = "Doe";
+$user->LegalRepresentativeBirthday = mktime(0, 0, 0, 12, 21, 1975);
+$user->LegalRepresentativeNationality = "GB";
+$user->LegalRepresentativeCountryOfResidence = "GB";
+
+$user->HeadquartersAddress = new Address();
+$user->HeadquartersAddress->AddressLine1 = "1 London Road";
+$user->HeadquartersAddress->City = "London";
+$user->HeadquartersAddress->PostalCode = "SW1A 1AA";
+$user->HeadquartersAddress->Country = "GB";
+
+$createdUser = $api->Users->Create($user);
+```
+
+## Migrating from v2.x to v3.x
+
+### API Version Update
+
+The SDK now requires API version 2.01 or higher.
+
+<Warning>
+If you're using API v2.00, you must update to v2.01 before upgrading the SDK.
+</Warning>
+
+### Namespace Changes
+
+All classes now use proper PSR-4 namespacing:
+
+**Before (v2.x):**
+
+```php
+$api = new MangoPayApi();
+$user = new MangoPayUserNatural();
+```
+
+**After (v3.x):**
+
+```php
+use MangoPay\MangoPayApi;
+use MangoPay\UserNatural;
+
+$api = new MangoPayApi();
+$user = new UserNatural();
+```
+
+### Autoloading
+
+**Before (v2.x):**
+
+```php
+require_once 'mangopay2-php-sdk/MangoPaySDK.php';
+```
+
+**After (v3.x) - with Composer:**
+
+```php
+require_once 'vendor/autoload.php';
+```
+
+**After (v3.x) - without Composer:**
+
+```php
+require_once '/path/to/mangopay/Autoloader.php';
+```
+
+## PHP Version Requirements
+
+<CardGroup cols={2}>
+  <Card title="Current Minimum" icon="php">
+    **PHP 5.6+**
+    
+    The SDK supports PHP 5.6 through PHP 8.2+
+  </Card>
+  <Card title="Recommended" icon="star">
+    **PHP 8.1+**
+    
+    Use the latest stable PHP version for best performance
+  </Card>
+</CardGroup>
+
+## Testing After Migration
+
+### Sandbox Testing
+
+Always test your migration in the sandbox environment first:
+
+```php
+use MangoPay\MangoPayApi;
+
+$api = new MangoPayApi();
+$api->Config->ClientId = 'your-sandbox-client-id';
+$api->Config->ClientPassword = 'your-sandbox-api-key';
+$api->Config->BaseUrl = 'https://api.sandbox.mangopay.com';
+$api->Config->TemporaryFolder = '/tmp/mangopay-sandbox/';
+```
+
+### Common Migration Issues
+
+<AccordionGroup>
+  <Accordion title="Temporary Folder Issues">
+    If you experience authentication issues after upgrading, delete your temporary token file:
+    
+    ```bash
+    rm -rf /path/to/temporary/folder/*
+    ```
+    
+    The SDK will regenerate it on the next API call.
+  </Accordion>
+  
+  <Accordion title="Type Errors">
+    If you encounter type errors with Money objects or other entities, ensure you're creating the proper object types:
+    
+    ```php
+    // Incorrect
+    $amount = 1000;
+    
+    // Correct
+    $amount = new \MangoPay\Money();
+    $amount->Currency = 'EUR';
+    $amount->Amount = 1000;
+    ```
+  </Accordion>
+  
+  <Accordion title="Null Reference Errors">
+    Always check for null before accessing nested properties:
+    
+    ```php
+    if ($user->PendingUserAction !== null && 
+        $user->PendingUserAction->RedirectUrl !== null) {
+        $url = $user->PendingUserAction->RedirectUrl;
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Getting Help
+
+<CardGroup cols={2}>
+  <Card title="Changelog" icon="clock" href="/resources/changelog">
+    View detailed release notes for all versions
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/resources/troubleshooting">
+    Common issues and solutions
+  </Card>
+  <Card title="GitHub Issues" icon="github" href="https://github.com/Mangopay/mangopay4-php-sdk/issues">
+    Report migration problems
+  </Card>
+  <Card title="API Documentation" icon="book" href="https://docs.mangopay.com">
+    Mangopay API reference
+  </Card>
+</CardGroup>

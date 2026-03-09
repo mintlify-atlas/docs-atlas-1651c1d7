@@ -1,0 +1,323 @@
+---
+title: 'Cards'
+description: 'Manage registered cards in Mangopay'
+icon: 'credit-card'
+---
+
+The `ApiCards` class provides methods to retrieve and manage registered card information.
+
+## Methods
+
+### Get
+
+Get a card by its ID.
+
+```php
+public function Get($cardId)
+```
+
+<ParamField path="cardId" type="string" required>
+  The unique identifier of the card
+</ParamField>
+
+**Returns:** `\MangoPay\Card` - The Card object
+
+**Example:**
+
+```php
+$card = $api->Cards->Get('card_123456');
+```
+
+### Update
+
+Update a card's properties (typically to deactivate it).
+
+```php
+public function Update($card)
+```
+
+<ParamField path="card" type="\MangoPay\Card" required>
+  The Card object to update (must include Id)
+</ParamField>
+
+**Returns:** `\MangoPay\Card` - The updated Card object
+
+**Example:**
+
+```php
+$card = $api->Cards->Get('card_123456');
+$card->Active = false;
+$result = $api->Cards->Update($card);
+```
+
+### GetByFingerprint
+
+Get a list of cards with the same fingerprint. The fingerprint is a hash uniquely generated per 16-digit card number.
+
+```php
+public function GetByFingerprint($fingerprint, & $pagination = null, $sorting = null)
+```
+
+<ParamField path="fingerprint" type="string" required>
+  The fingerprint hash of the card
+</ParamField>
+
+<ParamField path="pagination" type="\MangoPay\Pagination">
+  Pagination object (passed by reference)
+</ParamField>
+
+<ParamField path="sorting" type="\MangoPay\Sorting">
+  Sorting options
+</ParamField>
+
+**Returns:** `\MangoPay\Card[]` - Array of Card objects
+
+**Example:**
+
+```php
+$pagination = new \MangoPay\Pagination();
+$cards = $api->Cards->GetByFingerprint('abc123def456', $pagination);
+```
+
+### GetPreAuthorizations
+
+Get all pre-authorizations for a specific card.
+
+```php
+public function GetPreAuthorizations($cardId, $pagination = null, $filter = null, $sorting = null)
+```
+
+<ParamField path="cardId" type="string" required>
+  The ID of the card
+</ParamField>
+
+<ParamField path="pagination" type="\MangoPay\Pagination">
+  Pagination object
+</ParamField>
+
+<ParamField path="filter" type="\MangoPay\FilterPreAuthorizations">
+  Filtering options
+</ParamField>
+
+<ParamField path="sorting" type="\MangoPay\Sorting">
+  Sorting options
+</ParamField>
+
+**Returns:** `\MangoPay\CardPreAuthorization[]` - Array of CardPreAuthorization objects
+
+**Example:**
+
+```php
+$preAuths = $api->Cards->GetPreAuthorizations('card_123456');
+```
+
+### GetTransactions
+
+Retrieve a list of transactions for a specific card.
+
+```php
+public function GetTransactions($cardId, & $pagination = null, $filter = null, $sorting = null)
+```
+
+<ParamField path="cardId" type="string" required>
+  The ID of the card
+</ParamField>
+
+<ParamField path="pagination" type="\MangoPay\Pagination">
+  Pagination object (passed by reference)
+</ParamField>
+
+<ParamField path="filter" type="\MangoPay\FilterTransactions">
+  Filtering options
+</ParamField>
+
+<ParamField path="sorting" type="\MangoPay\Sorting">
+  Sorting options
+</ParamField>
+
+**Returns:** `\MangoPay\Transaction[]` - Array of Transaction objects
+
+**Example:**
+
+```php
+$pagination = new \MangoPay\Pagination();
+$transactions = $api->Cards->GetTransactions('card_123456', $pagination);
+```
+
+### ValidateCard
+
+Validate a card.
+
+```php
+public function ValidateCard($cardId, $cardValidation)
+```
+
+<ParamField path="cardId" type="string" required>
+  The ID of the card to validate
+</ParamField>
+
+<ParamField path="cardValidation" type="\MangoPay\CardValidation" required>
+  The card validation object
+</ParamField>
+
+**Returns:** `\MangoPay\CardValidation`
+
+**Example:**
+
+```php
+$validation = new \MangoPay\CardValidation();
+$validation->SecureModeReturnURL = 'https://example.com/return';
+$result = $api->Cards->ValidateCard('card_123456', $validation);
+```
+
+### GetCardValidation
+
+Get a card validation.
+
+```php
+public function GetCardValidation($cardId, $cardValidationId)
+```
+
+<ParamField path="cardId" type="string" required>
+  The ID of the card
+</ParamField>
+
+<ParamField path="cardValidationId" type="string" required>
+  The ID of the card validation
+</ParamField>
+
+**Returns:** `\MangoPay\CardValidation`
+
+**Example:**
+
+```php
+$validation = $api->Cards->GetCardValidation('card_123456', 'validation_123');
+```
+
+### GetTransactionsByFingerprint
+
+Get all transactions for cards with a specific fingerprint.
+
+```php
+public function GetTransactionsByFingerprint($fingerprint, $filter = null, $pagination = null, $sorting = null)
+```
+
+<ParamField path="fingerprint" type="string" required>
+  The card fingerprint hash
+</ParamField>
+
+<ParamField path="filter" type="\MangoPay\FilterTransactions">
+  Filtering options
+</ParamField>
+
+<ParamField path="pagination" type="\MangoPay\Pagination">
+  Pagination object
+</ParamField>
+
+<ParamField path="sorting" type="\MangoPay\Sorting">
+  Sorting options
+</ParamField>
+
+**Returns:** `\MangoPay\Transaction[]` - Array of Transaction objects
+
+**Example:**
+
+```php
+$transactions = $api->Cards->GetTransactionsByFingerprint('abc123def456');
+```
+
+## Card Entity
+
+The `Card` entity represents a registered payment card.
+
+### Properties
+
+<ResponseField name="Id" type="string">
+  The unique identifier of the card
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of when the card was registered
+</ResponseField>
+
+<ResponseField name="Tag" type="string">
+  Custom data for your use
+</ResponseField>
+
+<ResponseField name="UserId" type="string">
+  The ID of the user who owns the card
+</ResponseField>
+
+<ResponseField name="ExpirationDate" type="string">
+  The expiration date in MMYY format
+</ResponseField>
+
+<ResponseField name="Alias" type="string">
+  An obfuscated version of the card number (e.g., "497010XXXXXX0487")
+</ResponseField>
+
+<ResponseField name="CardProvider" type="string">
+  The card provider: `CB`, `VISA`, `MASTERCARD`, `AMEX`, etc.
+</ResponseField>
+
+<ResponseField name="CardType" type="string">
+  The type of card: `CB_VISA_MASTERCARD`, `DINERS`, `MASTERPASS`, `MAESTRO`, `P24`, `IDEAL`, etc.
+</ResponseField>
+
+<ResponseField name="Product" type="string">
+  Additional product information about the card
+</ResponseField>
+
+<ResponseField name="BankCode" type="string">
+  The bank code (BIN) of the card
+</ResponseField>
+
+<ResponseField name="Country" type="string">
+  The country where the card was issued (ISO 3166-1 alpha-2 format)
+</ResponseField>
+
+<ResponseField name="Active" type="bool">
+  Whether the card is active and can be used for payments
+</ResponseField>
+
+<ResponseField name="Currency" type="string">
+  The currency of the card (ISO 4217 format)
+</ResponseField>
+
+<ResponseField name="Validity" type="string">
+  The validity status: `UNKNOWN`, `VALID`, `INVALID`
+</ResponseField>
+
+<ResponseField name="Fingerprint" type="string">
+  A unique hash generated per 16-digit card number
+</ResponseField>
+
+<ResponseField name="CardHolderName" type="string">
+  The cardholder's name as shown on the payment card
+</ResponseField>
+
+## Usage Example
+
+```php
+// Get a card
+$card = $api->Cards->Get('card_123456');
+
+echo "Card: " . $card->Alias . "\n";
+echo "Expires: " . $card->ExpirationDate . "\n";
+echo "Active: " . ($card->Active ? 'Yes' : 'No') . "\n";
+
+// Deactivate a card
+if ($card->Active) {
+    $card->Active = false;
+    $updatedCard = $api->Cards->Update($card);
+    echo "Card deactivated\n";
+}
+
+// Get all transactions for the card
+$pagination = new \MangoPay\Pagination();
+$transactions = $api->Cards->GetTransactions($card->Id, $pagination);
+
+foreach ($transactions as $transaction) {
+    echo "Transaction: " . $transaction->Id . " - " . $transaction->Status . "\n";
+}
+```

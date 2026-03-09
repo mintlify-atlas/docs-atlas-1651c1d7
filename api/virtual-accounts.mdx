@@ -1,0 +1,242 @@
+---
+title: 'Virtual Accounts'
+description: 'Manage virtual accounts for wallets'
+---
+
+## Overview
+
+The Virtual Accounts API allows you to create and manage virtual IBANs for wallets. Virtual accounts provide dedicated bank account details that can be used to receive funds directly into a wallet, simplifying the funding process for your users.
+
+Virtual accounts support both COLLECTION and USER_OWNED purposes, with country-specific IBAN generation.
+
+## Methods
+
+### Create
+
+Create a new virtual account for a wallet.
+
+```php
+public function Create($virtualAccount, $walletId, $idempotencyKey = null)
+```
+
+<ParamField path="virtualAccount" type="VirtualAccount" required>
+  The virtual account object to create
+</ParamField>
+
+<ParamField path="walletId" type="string" required>
+  The wallet identifier
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key to ensure request uniqueness
+</ParamField>
+
+**Returns:** `VirtualAccount` - The created virtual account object
+
+**Example:**
+
+```php
+$api = new MangoPay\MangoPayApi();
+
+$virtualAccount = new MangoPay\VirtualAccount();
+$virtualAccount->VirtualAccountPurpose = 'COLLECTION';
+$virtualAccount->Country = 'FR';
+
+$createdAccount = $api->VirtualAccounts->Create($virtualAccount, 'wallet_123456');
+echo "IBAN: " . $createdAccount->LocalAccountDetails->IBAN;
+```
+
+### Get
+
+Retrieve a virtual account by its ID.
+
+```php
+public function Get($walletId, $virtualAccountId)
+```
+
+<ParamField path="walletId" type="string" required>
+  The wallet identifier
+</ParamField>
+
+<ParamField path="virtualAccountId" type="string" required>
+  The virtual account identifier
+</ParamField>
+
+**Returns:** `VirtualAccount` - The virtual account object
+
+**Example:**
+
+```php
+$virtualAccount = $api->VirtualAccounts->Get('wallet_123456', 'vacct_123456');
+```
+
+### GetAll
+
+Retrieve all virtual accounts for a specific wallet.
+
+```php
+public function GetAll($walletId, $pagination = null, $sorting = null)
+```
+
+<ParamField path="walletId" type="string" required>
+  The wallet identifier
+</ParamField>
+
+<ParamField path="pagination" type="Pagination">
+  Pagination object
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting configuration object
+</ParamField>
+
+**Returns:** `VirtualAccount[]` - Array of virtual account objects
+
+**Example:**
+
+```php
+$pagination = new MangoPay\Pagination(1, 10);
+$virtualAccounts = $api->VirtualAccounts->GetAll('wallet_123456', $pagination);
+
+foreach ($virtualAccounts as $account) {
+    echo "Status: " . $account->Status . "\n";
+}
+```
+
+### Deactivate
+
+Deactivate a virtual account.
+
+```php
+public function Deactivate($walletId, $virtualAccountId)
+```
+
+<ParamField path="walletId" type="string" required>
+  The wallet identifier
+</ParamField>
+
+<ParamField path="virtualAccountId" type="string" required>
+  The virtual account identifier to deactivate
+</ParamField>
+
+**Returns:** `VirtualAccount` - The deactivated virtual account object
+
+**Example:**
+
+```php
+$deactivated = $api->VirtualAccounts->Deactivate('wallet_123456', 'vacct_123456');
+```
+
+### GetAvailabilities
+
+Retrieve available virtual account configurations by country and currency.
+
+```php
+public function GetAvailabilities()
+```
+
+**Returns:** `VirtualAccountAvailabilities` - Object containing available virtual account configurations
+
+**Example:**
+
+```php
+$availabilities = $api->VirtualAccounts->GetAvailabilities();
+foreach ($availabilities->Local as $availability) {
+    echo "Country: " . $availability->Country . ", Currency: " . $availability->Currency . "\n";
+}
+```
+
+## VirtualAccount Entity
+
+The `VirtualAccount` entity represents a virtual IBAN with the following properties:
+
+<ResponseField name="Id" type="string">
+  The unique identifier of the virtual account
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of when the virtual account was created
+</ResponseField>
+
+<ResponseField name="Tag" type="string">
+  Custom data that you can add to this item
+</ResponseField>
+
+<ResponseField name="WalletId" type="string">
+  The ID of the wallet
+</ResponseField>
+
+<ResponseField name="CreditedUserId" type="string">
+  The credited user ID
+</ResponseField>
+
+<ResponseField name="VirtualAccountPurpose" type="string">
+  The type of the virtual account. Allowed values: `COLLECTION`, `USER_OWNED`
+</ResponseField>
+
+<ResponseField name="Country" type="string">
+  The country of the IBAN (ISO 3166-1 alpha-2 format). Must correspond to the currency of the wallet.
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  The status of the virtual account. See `VirtualAccountStatus` for possible values.
+</ResponseField>
+
+<ResponseField name="Active" type="bool">
+  Whether the virtual account is active or not
+</ResponseField>
+
+<ResponseField name="AccountOwner" type="VirtualAccountOwner">
+  Information about the account owner
+</ResponseField>
+
+<ResponseField name="LocalAccountDetails" type="LocalAccountDetails">
+  Local account details including IBAN, BIC, and other country-specific information
+</ResponseField>
+
+<ResponseField name="InternationalAccountDetails" type="InternationalAccountDetails">
+  International account details (when applicable)
+</ResponseField>
+
+<ResponseField name="Capabilities" type="VirtualAccountCapabilities">
+  Capabilities of the virtual account (e.g., supported payment methods)
+</ResponseField>
+
+<ResponseField name="ResultCode" type="string">
+  Result code if the creation failed
+</ResponseField>
+
+<ResponseField name="ResultMessage" type="string">
+  Result message providing details about any errors
+</ResponseField>
+
+## VirtualAccountAvailabilities Entity
+
+Contains information about available virtual account configurations:
+
+<ResponseField name="Local" type="VirtualAccountAvailability[]">
+  Array of available local virtual account configurations by country and currency
+</ResponseField>
+
+<ResponseField name="International" type="VirtualAccountAvailability[]">
+  Array of available international virtual account configurations
+</ResponseField>
+
+## VirtualAccountAvailability Entity
+
+<ResponseField name="Country" type="string">
+  Country code (ISO 3166-1 alpha-2)
+</ResponseField>
+
+<ResponseField name="Currency" type="string">
+  Currency code (ISO 4217)
+</ResponseField>
+
+<ResponseField name="Available" type="bool">
+  Whether virtual accounts are available for this country/currency combination
+</ResponseField>
+
+## Related Resources
+
+- [Banking Aliases](/api/banking-aliases)
+- [Wallets](/api/wallets)

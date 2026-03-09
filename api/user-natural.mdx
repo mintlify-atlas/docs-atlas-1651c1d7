@@ -1,0 +1,278 @@
+---
+title: 'Natural User'
+description: 'Natural user entity representing an individual person'
+---
+
+## Overview
+
+A Natural User represents an individual person in the Mangopay system. Natural users can create wallets, make payments, and perform other financial operations.
+
+Mangopay provides two variants:
+- **UserNatural**: Standard natural user
+- **UserNaturalSca**: Natural user with Strong Customer Authentication (SCA) support
+
+## UserNatural Properties
+
+### Base Properties (EntityBase)
+
+<ResponseField name="Id" type="string" required>
+  Unique identifier for the user (read-only)
+</ResponseField>
+
+<ResponseField name="Tag" type="string">
+  Custom data for your own use
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of when the user was created (read-only)
+</ResponseField>
+
+### User Properties
+
+<ResponseField name="PersonType" type="string" required>
+  Type of user. Always "NATURAL" for natural users (read-only)
+</ResponseField>
+
+<ResponseField name="Email" type="string" required>
+  The user's email address
+</ResponseField>
+
+<ResponseField name="KYCLevel" type="string">
+  KYC (Know Your Customer) level. Values: "LIGHT" or "REGULAR" (read-only)
+</ResponseField>
+
+<ResponseField name="TermsAndConditionsAccepted" type="bool">
+  Whether the user has accepted the MANGOPAY Terms and Conditions
+</ResponseField>
+
+<ResponseField name="TermsAndConditionsAcceptedDate" type="int">
+  Unix timestamp of when the user accepted the Terms and Conditions (read-only)
+</ResponseField>
+
+<ResponseField name="UserCategory" type="string">
+  Category of user. See UserCategory constants for possible values.
+</ResponseField>
+
+<ResponseField name="UserStatus" type="string">
+  Status of the user (read-only)
+</ResponseField>
+
+### Natural User Properties
+
+<ResponseField name="FirstName" type="string" required>
+  The user's first name
+</ResponseField>
+
+<ResponseField name="LastName" type="string" required>
+  The user's last name
+</ResponseField>
+
+<ResponseField name="Address" type="Address">
+  The user's address object
+</ResponseField>
+
+<ResponseField name="Birthday" type="int" required>
+  Unix timestamp of the user's date of birth
+</ResponseField>
+
+<ResponseField name="Nationality" type="string" required>
+  The user's nationality (ISO 3166-1 alpha-2 country code)
+</ResponseField>
+
+<ResponseField name="CountryOfResidence" type="string" required>
+  The user's country of residence (ISO 3166-1 alpha-2 country code)
+</ResponseField>
+
+<ResponseField name="Occupation" type="string">
+  The user's occupation
+</ResponseField>
+
+<ResponseField name="IncomeRange" type="int">
+  The user's income range. See IncomeRange constants for possible values.
+</ResponseField>
+
+<ResponseField name="ProofOfIdentity" type="string">
+  ID of the KYC document for proof of identity (read-only)
+</ResponseField>
+
+<ResponseField name="ProofOfAddress" type="string">
+  ID of the KYC document for proof of address (read-only)
+</ResponseField>
+
+<ResponseField name="Capacity" type="string">
+  Capacity of the user within MangoPay. See NaturalUserCapacity constants for possible values.
+</ResponseField>
+
+## UserNaturalSca Properties
+
+The UserNaturalSca class extends the standard UserNatural with additional SCA (Strong Customer Authentication) properties.
+
+### Additional SCA Properties
+
+<ResponseField name="PhoneNumber" type="string">
+  The user's phone number in international format (E.164) or local format. Required if UserCategory is OWNER.
+  
+  **Note:** If UserCategory is OWNER, modifying this value requires the user to re-enroll via the `PendingUserAction.RedirectUrl`.
+</ResponseField>
+
+<ResponseField name="PhoneNumberCountry" type="string">
+  Two-letter country code (ISO 3166-1 alpha-2) for the phone number. Required if PhoneNumber is in local format.
+  
+  **Note:** If UserCategory is OWNER, modifying this value requires the user to re-enroll via the `PendingUserAction.RedirectUrl`.
+</ResponseField>
+
+<ResponseField name="PendingUserAction" type="PendingUserAction">
+  Information about required user action when UserStatus is PENDING_USER_ACTION. Otherwise null.
+  
+  Contains a `RedirectUrl` property where the user should be redirected for actions like SCA enrollment.
+</ResponseField>
+
+<ResponseField name="ScaContext" type="string">
+  The SCA context for the user. Possible values: "USER_PRESENT", "USER_NOT_PRESENT"
+</ResponseField>
+
+## Example Usage
+
+### Creating a Standard Natural User
+
+```php
+$api = new MangoPay\MangoPayApi();
+
+$user = new MangoPay\UserNatural();
+$user->FirstName = 'John';
+$user->LastName = 'Doe';
+$user->Email = 'john.doe@example.com';
+$user->Birthday = mktime(0, 0, 0, 12, 21, 1985); // December 21, 1985
+$user->Nationality = 'GB';
+$user->CountryOfResidence = 'GB';
+$user->Tag = 'Created from PHP SDK';
+
+// Optional: Add address
+$address = new MangoPay\Address();
+$address->AddressLine1 = '1 London Road';
+$address->City = 'London';
+$address->PostalCode = 'SW1A 1AA';
+$address->Country = 'GB';
+$user->Address = $address;
+
+$createdUser = $api->Users->Create($user);
+echo 'User created with ID: ' . $createdUser->Id;
+```
+
+### Creating an SCA Natural User
+
+```php
+$api = new MangoPay\MangoPayApi();
+
+$user = new MangoPay\UserNaturalSca();
+$user->FirstName = 'Jane';
+$user->LastName = 'Smith';
+$user->Email = 'jane.smith@example.com';
+$user->Birthday = mktime(0, 0, 0, 5, 15, 1990);
+$user->Nationality = 'FR';
+$user->CountryOfResidence = 'FR';
+$user->UserCategory = 'OWNER';
+$user->PhoneNumber = '+33612345678';
+$user->PhoneNumberCountry = 'FR';
+$user->TermsAndConditionsAccepted = true;
+
+$createdUser = $api->Users->Create($user);
+echo 'SCA User created with ID: ' . $createdUser->Id;
+```
+
+### Updating a Natural User
+
+```php
+$api = new MangoPay\MangoPayApi();
+
+// Get the existing user
+$user = $api->Users->GetNatural('user_123456');
+
+// Update properties
+$user->Email = 'newemail@example.com';
+$user->Occupation = 'Software Engineer';
+$user->IncomeRange = 3;
+
+// Save the changes
+$updatedUser = $api->Users->Update($user);
+echo 'User updated successfully';
+```
+
+### Retrieving a Natural User
+
+```php
+$api = new MangoPay\MangoPayApi();
+
+// Get a specific natural user
+$user = $api->Users->GetNatural('user_123456');
+
+echo 'User: ' . $user->FirstName . ' ' . $user->LastName;
+echo 'Email: ' . $user->Email;
+echo 'KYC Level: ' . $user->KYCLevel;
+```
+
+### Working with SCA Users
+
+```php
+$api = new MangoPay\MangoPayApi();
+
+// Get an SCA natural user
+$user = $api->Users->GetNaturalSca('user_123456');
+
+// Check if user action is required
+if ($user->UserStatus === 'PENDING_USER_ACTION' && $user->PendingUserAction) {
+    $redirectUrl = $user->PendingUserAction->RedirectUrl;
+    // Redirect the user to complete SCA enrollment
+    echo 'Please complete enrollment at: ' . $redirectUrl;
+}
+```
+
+### Enrolling a User in SCA
+
+```php
+$api = new MangoPay\MangoPayApi();
+
+// Enroll an OWNER user in SCA
+$enrollmentResult = $api->Users->Enroll('user_123456');
+
+if (isset($enrollmentResult->PendingUserAction->RedirectUrl)) {
+    $scaUrl = $enrollmentResult->PendingUserAction->RedirectUrl;
+    // Add your return URL parameter
+    $returnUrl = urlencode('https://yoursite.com/return');
+    $fullUrl = $scaUrl . '?returnUrl=' . $returnUrl;
+    
+    // Redirect user to complete SCA
+    header('Location: ' . $fullUrl);
+}
+```
+
+## Address Object
+
+The Address object used in the `Address` property has the following structure:
+
+```php
+$address = new MangoPay\Address();
+$address->AddressLine1 = 'Street address';
+$address->AddressLine2 = 'Additional address info'; // Optional
+$address->City = 'City name';
+$address->Region = 'Region/State'; // Optional
+$address->PostalCode = 'Postal code';
+$address->Country = 'GB'; // ISO 3166-1 alpha-2 country code
+```
+
+## Read-Only Properties
+
+The following properties are read-only and cannot be modified:
+- `Id`
+- `CreationDate`
+- `PersonType`
+- `TermsAndConditionsAcceptedDate`
+- `ProofOfIdentity`
+- `ProofOfAddress`
+- `KYCLevel`
+- `UserStatus`
+
+## Related Resources
+
+- [Users API](/api/users) - Main Users API documentation
+- [Legal Users](/api/user-legal) - Legal user entity documentation

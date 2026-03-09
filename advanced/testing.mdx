@@ -1,0 +1,532 @@
+---
+title: "Testing"
+description: "Test your Mangopay integration using sandbox environment and PHPUnit"
+icon: "flask"
+---
+
+## Overview
+
+The Mangopay PHP SDK provides comprehensive testing capabilities through a sandbox environment. This allows you to test your integration without processing real payments or affecting production data.
+
+## Sandbox Environment
+
+The sandbox environment mirrors production but uses test data:
+
+```php
+use MangoPay\MangoPayApi;
+
+$api = new MangoPayApi();
+
+// Sandbox configuration
+$api->Config->ClientId = 'your-sandbox-client-id';
+$api->Config->ClientPassword = 'your-sandbox-api-key';
+$api->Config->BaseUrl = 'https://api.sandbox.mangopay.com';
+$api->Config->TemporaryFolder = '/tmp/mangopay-sandbox/';
+```
+
+<Warning>
+  Always use separate temporary folders for sandbox and production environments to avoid token conflicts.
+</Warning>
+
+## Test Credentials
+
+Obtain sandbox credentials from the [Mangopay Dashboard](https://dashboard.mangopay.com/):
+
+1. Create a sandbox account
+2. Navigate to API credentials
+3. Note your ClientId and API Key
+4. Use the sandbox base URL: `https://api.sandbox.mangopay.com`
+
+## PHPUnit Test Setup
+
+The SDK includes a comprehensive test suite using PHPUnit:
+
+### Running Tests
+
+```bash
+# Run all tests
+php tests/suites/all.php
+
+# Run specific test case
+php tests/cases/UsersTest.php
+```
+
+### Test Structure
+
+All test cases extend the base test class:
+
+```php
+namespace MangoPay\Tests\Cases;
+
+use PHPUnit\Framework\TestCase;
+use MangoPay\MangoPayApi;
+
+abstract class Base extends TestCase
+{
+    protected $_api;
+    
+    public function __construct()
+    {
+        parent::__construct();
+        $this->_api = $this->buildNewMangoPayApi();
+    }
+    
+    protected function buildNewMangoPayApi()
+    {
+        $api = new MangoPayApi();
+        
+        // Sandbox credentials
+        $api->Config->ClientId = 'sdk-unit-tests';
+        $api->Config->ClientPassword = 'your-sandbox-password';
+        $api->Config->BaseUrl = 'https://api.sandbox.mangopay.com';
+        
+        return $api;
+    }
+}
+```
+
+## Writing Tests
+
+### Testing User Creation
+
+```php
+namespace Tests;
+
+use MangoPay\Tests\Cases\Base;
+use MangoPay\UserNatural;
+
+class UserTest extends Base
+{
+    public function testCreateUser()
+    {
+        $user = new UserNatural();
+        $user->FirstName = "John";
+        $user->LastName = "Doe";
+        $user->Email = "john.doe@example.com";
+        $user->Birthday = mktime(0, 0, 0, 12, 21, 1985);
+        $user->Nationality = "FR";
+        $user->CountryOfResidence = "FR";
+        $user->TermsAndConditionsAccepted = true;
+        
+        $createdUser = $this->_api->Users->Create($user);
+        
+        $this->assertNotNull($createdUser->Id);
+        $this->assertEquals("John", $createdUser->FirstName);
+        $this->assertEquals("Doe", $createdUser->LastName);
+    }
+}
+```
+
+### Testing Pay-Ins
+
+```php
+public function testCreatePayIn()
+{
+    $user = $this->getTestUser();
+    $wallet = $this->getTestWallet($user->Id);
+    $cardRegistration = $this->getTestCardRegistration($user->Id);
+    
+    $payIn = new \MangoPay\PayIn();
+    $payIn->AuthorId = $user->Id;
+    $payIn->CreditedWalletId = $wallet->Id;
+    
+    $payIn->DebitedFunds = new \MangoPay\Money();
+    $payIn->DebitedFunds->Amount = 1000;
+    $payIn->DebitedFunds->Currency = 'EUR';
+    
+    $payIn->Fees = new \MangoPay\Money();
+    $payIn->Fees->Amount = 0;
+    $payIn->Fees->Currency = 'EUR';
+    
+    $payIn->PaymentDetails = new \MangoPay\PayInPaymentDetailsCard();
+    $payIn->PaymentDetails->CardId = $cardRegistration->CardId;
+    
+    $payIn->ExecutionDetails = new \MangoPay\PayInExecutionDetailsDirect();
+    $payIn->ExecutionDetails->SecureModeReturnURL = 'http://test.com';
+    
+    $result = $this->_api->PayIns->Create($payIn);
+    
+    $this->assertNotNull($result->Id);
+    $this->assertEquals('SUCCEEDED', $result->Status);
+}
+```
+
+### Testing Mandates
+
+```php
+public function testCreateMandate()
+{
+    $user = $this->getTestUser();
+    $bankAccount = $this->getTestBankAccount($user->Id);
+    
+    $mandate = new \MangoPay\Mandate();
+    $mandate->BankAccountId = $bankAccount->Id;
+    $mandate->ReturnURL = "http://www.test.com/returnURL/";
+    $mandate->Culture = "EN";
+    $mandate->Tag = "Test mandate";
+    
+    $createdMandate = $this->_api->Mandates->Create($mandate);
+    
+    $this->assertNotNull($createdMandate->Id);
+    $this->assertEquals($user->Id, $createdMandate->UserId);
+    $this->assertEquals('CREATED', $createdMandate->Status);
+}
+```
+
+### Testing Conversions
+
+```php
+public function testInstantConversion()
+{
+    $user = $this->getTestUser();
+    $eurWallet = $this->getTestWallet($user->Id, 'EUR');
+    $gbpWallet = $this->getTestWallet($user->Id, 'GBP');
+    
+    // Fund EUR wallet first
+    $this->fundWallet($eurWallet->Id, 10000);
+    
+    $conversion = new \MangoPay\CreateInstantConversion();
+    $conversion->AuthorId = $user->Id;
+    $conversion->DebitedWalletId = $eurWallet->Id;
+    $conversion->CreditedWalletId = $gbpWallet->Id;
+    
+    $debitedFunds = new \MangoPay\Money();
+    $debitedFunds->Currency = 'EUR';
+    $debitedFunds->Amount = 1000;
+    $conversion->DebitedFunds = $debitedFunds;
+    
+    $creditedFunds = new \MangoPay\Money();
+    $creditedFunds->Currency = 'GBP';
+    $conversion->CreditedFunds = $creditedFunds;
+    
+    $result = $this->_api->Conversions->CreateInstantConversion($conversion);
+    
+    $this->assertNotNull($result->Id);
+    $this->assertEquals('SUCCEEDED', $result->Status);
+    $this->assertNotNull($result->CreditedFunds->Amount);
+}
+```
+
+## Test Card Numbers
+
+Use these test card numbers in sandbox:
+
+```php
+namespace Tests;
+
+class Constants
+{
+    // Successful payment - no 3DS
+    const CARD_FRICTIONLESS = '4970105181818183';
+    
+    // Successful payment - with 3DS
+    const CARD_3DS = '4970101122334422';
+    
+    // Failed payment
+    const CARD_FAILED = '4972485830400049';
+    
+    // Card expiration
+    const CARD_EXPIRATION = '1229'; // MM/YY
+    
+    // CVV
+    const CARD_CVV = '123';
+}
+```
+
+### Creating Test Cards
+
+```php
+protected function getTestCardRegistration($userId)
+{
+    $cardRegistration = new \MangoPay\CardRegistration();
+    $cardRegistration->UserId = $userId;
+    $cardRegistration->Currency = 'EUR';
+    
+    $cardRegistration = $this->_api->CardRegistrations->Create($cardRegistration);
+    
+    // In production, card data never touches your server
+    // This is for testing only
+    $cardRegistration->RegistrationData = $this->getTestRegistrationData(
+        $cardRegistration
+    );
+    
+    return $this->_api->CardRegistrations->Update($cardRegistration);
+}
+
+protected function getTestRegistrationData($cardRegistration)
+{
+    $data = 'data=' . $cardRegistration->PreregistrationData .
+        '&accessKeyRef=' . $cardRegistration->AccessKey .
+        '&cardNumber=' . Constants::CARD_FRICTIONLESS .
+        '&cardExpirationDate=1229' .
+        '&cardCvx=123';
+    
+    // Submit to Mangopay tokenization endpoint
+    $ch = curl_init($cardRegistration->CardRegistrationURL);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+    
+    $response = curl_exec($ch);
+    curl_close($ch);
+    
+    return $response;
+}
+```
+
+## Mocking API Responses
+
+For unit tests, mock API responses:
+
+```php
+use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\MockObject\MockObject;
+
+class PaymentServiceTest extends TestCase
+{
+    private $apiMock;
+    
+    protected function setUp(): void
+    {
+        $this->apiMock = $this->createMock(\MangoPay\MangoPayApi::class);
+    }
+    
+    public function testProcessPayment()
+    {
+        // Mock PayIns API
+        $payInsMock = $this->createMock(\MangoPay\ApiPayIns::class);
+        $this->apiMock->PayIns = $payInsMock;
+        
+        // Mock expected response
+        $expectedPayIn = new \MangoPay\PayIn();
+        $expectedPayIn->Id = 'payin_123456';
+        $expectedPayIn->Status = 'SUCCEEDED';
+        
+        $payInsMock->expects($this->once())
+            ->method('Create')
+            ->willReturn($expectedPayIn);
+        
+        // Test your service using the mock
+        $service = new PaymentService($this->apiMock);
+        $result = $service->processPayment(1000, 'user_123');
+        
+        $this->assertEquals('SUCCEEDED', $result->Status);
+    }
+}
+```
+
+## Testing Error Scenarios
+
+```php
+public function testInvalidPayIn()
+{
+    $payIn = new \MangoPay\PayIn();
+    // Intentionally missing required fields
+    
+    $this->expectException(\MangoPay\Libraries\ResponseException::class);
+    $this->expectExceptionCode(400);
+    
+    $this->_api->PayIns->Create($payIn);
+}
+
+public function testInsufficientFunds()
+{
+    $wallet = $this->getTestWallet();
+    
+    // Try to pay out more than wallet balance
+    $payOut = new \MangoPay\PayOut();
+    $payOut->DebitedWalletId = $wallet->Id;
+    
+    $debitedFunds = new \MangoPay\Money();
+    $debitedFunds->Amount = 999999999;
+    $debitedFunds->Currency = 'EUR';
+    $payOut->DebitedFunds = $debitedFunds;
+    
+    try {
+        $this->_api->PayOuts->Create($payOut);
+        $this->fail('Expected ResponseException');
+    } catch (\MangoPay\Libraries\ResponseException $e) {
+        $this->assertEquals(400, $e->getCode());
+        $this->assertStringContainsString('insufficient', strtolower($e->getMessage()));
+    }
+}
+```
+
+## Integration Testing
+
+Test complete workflows:
+
+```php
+public function testCompletePaymentFlow()
+{
+    // 1. Create user
+    $user = $this->createTestUser();
+    $this->assertNotNull($user->Id);
+    
+    // 2. Create wallet
+    $wallet = $this->createTestWallet($user->Id);
+    $this->assertNotNull($wallet->Id);
+    
+    // 3. Register card
+    $cardRegistration = $this->createTestCardRegistration($user->Id);
+    $this->assertNotNull($cardRegistration->CardId);
+    
+    // 4. Create pay-in
+    $payIn = $this->createTestPayIn($user->Id, $wallet->Id, $cardRegistration->CardId);
+    $this->assertEquals('SUCCEEDED', $payIn->Status);
+    
+    // 5. Verify wallet balance
+    $wallet = $this->_api->Wallets->Get($wallet->Id);
+    $this->assertGreaterThan(0, $wallet->Balance->Amount);
+    
+    // 6. Create pay-out
+    $bankAccount = $this->createTestBankAccount($user->Id);
+    $payOut = $this->createTestPayOut($user->Id, $wallet->Id, $bankAccount->Id);
+    $this->assertEquals('SUCCEEDED', $payOut->Status);
+}
+```
+
+## Test Data Helpers
+
+Create reusable test data helpers:
+
+```php
+protected function getTestUser()
+{
+    $user = new \MangoPay\UserNatural();
+    $user->FirstName = "Test";
+    $user->LastName = "User" . time();
+    $user->Email = "test." . time() . "@example.com";
+    $user->Birthday = mktime(0, 0, 0, 12, 21, 1985);
+    $user->Nationality = "FR";
+    $user->CountryOfResidence = "FR";
+    $user->TermsAndConditionsAccepted = true;
+    
+    return $this->_api->Users->Create($user);
+}
+
+protected function getTestWallet($userId, $currency = 'EUR')
+{
+    $wallet = new \MangoPay\Wallet();
+    $wallet->Owners = [$userId];
+    $wallet->Currency = $currency;
+    $wallet->Description = 'Test Wallet';
+    
+    return $this->_api->Wallets->Create($wallet);
+}
+
+protected function getTestBankAccount($userId)
+{
+    $bankAccount = new \MangoPay\BankAccount();
+    $bankAccount->OwnerName = 'Test User';
+    $bankAccount->OwnerAddress = $this->getTestAddress();
+    
+    $bankAccount->Details = new \MangoPay\BankAccountDetailsIBAN();
+    $bankAccount->Details->IBAN = 'FR7630004000031234567890143';
+    $bankAccount->Details->BIC = 'BNPAFRPP';
+    
+    return $this->_api->Users->CreateBankAccount($userId, $bankAccount);
+}
+
+protected function getTestAddress()
+{
+    $address = new \MangoPay\Address();
+    $address->AddressLine1 = 'Test Street 1';
+    $address->City = 'Paris';
+    $address->Country = 'FR';
+    $address->PostalCode = '75001';
+    $address->Region = 'Ile-de-France';
+    
+    return $address;
+}
+```
+
+## Running Tests in CI/CD
+
+Example GitHub Actions workflow:
+
+```yaml
+name: Run Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.1'
+        extensions: curl, json
+    
+    - name: Install dependencies
+      run: composer install --prefer-dist --no-progress
+    
+    - name: Run tests
+      env:
+        MANGOPAY_CLIENT_ID: ${{ secrets.MANGOPAY_SANDBOX_CLIENT_ID }}
+        MANGOPAY_API_KEY: ${{ secrets.MANGOPAY_SANDBOX_API_KEY }}
+      run: php tests/suites/all.php
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Separate Environments" icon="layer-group">
+    Always use different credentials and temporary folders for sandbox and production.
+  </Card>
+  
+  <Card title="Clean Test Data" icon="broom">
+    Clean up test data after tests to avoid reaching sandbox limits.
+  </Card>
+  
+  <Card title="Test All Scenarios" icon="list-check">
+    Test both success and failure scenarios, including edge cases.
+  </Card>
+  
+  <Card title="Use Helpers" icon="wrench">
+    Create reusable helper methods to reduce code duplication in tests.
+  </Card>
+</CardGroup>
+
+## Debugging Tests
+
+Enable debugging for failed tests:
+
+```php
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+
+protected function buildNewMangoPayApi()
+{
+    $api = new MangoPayApi();
+    $api->Config->ClientId = 'sdk-unit-tests';
+    $api->Config->ClientPassword = 'your-password';
+    $api->Config->BaseUrl = 'https://api.sandbox.mangopay.com';
+    
+    // Enable logging for tests
+    $logger = new Logger('mangopay-tests');
+    $logger->pushHandler(
+        new StreamHandler('php://stdout', Logger::DEBUG)
+    );
+    $api->setLogger($logger);
+    
+    return $api;
+}
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="PHPUnit Documentation" icon="book" href="https://phpunit.de/documentation.html">
+    Official PHPUnit testing framework documentation
+  </Card>
+  
+  <Card title="Sandbox Dashboard" icon="gauge" href="https://dashboard.sandbox.mangopay.com">
+    Access your sandbox dashboard
+  </Card>
+</CardGroup>

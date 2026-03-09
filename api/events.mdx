@@ -1,0 +1,267 @@
+---
+title: "ApiEvents"
+description: "API methods for retrieving event history"
+---
+
+## Overview
+
+The `ApiEvents` class provides methods for retrieving the event history. Events represent state changes that occur on your platform, such as successful payments, failed transactions, or KYC document validations.
+
+<Info>
+Events are similar to webhooks, but accessed via API polling rather than push notifications. Use webhooks for real-time notifications and events for historical queries or backup processing.
+</Info>
+
+## Methods
+
+### GetAll
+
+Retrieve all events with optional filtering and pagination.
+
+```php
+public function GetAll(?Pagination &$pagination = null, ?FilterEvents $filter = null, ?Sorting $sorting = null): array
+```
+
+<ParamField path="pagination" type="Pagination">
+  Pagination parameters (passed by reference)
+</ParamField>
+
+<ParamField path="filter" type="FilterEvents">
+  Filter events by type, date, or resource
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting parameters
+</ParamField>
+
+**Returns:** Array of `Event` objects
+
+**Example:**
+
+```php
+// Get all events from the last hour
+$pagination = new MangoPay\Pagination(1, 100);
+$filter = new MangoPay\FilterEvents();
+$filter->AfterDate = time() - 3600; // Last hour
+$filter->EventType = 'PAYIN_NORMAL_SUCCEEDED';
+
+$events = $api->Events->GetAll($pagination, $filter);
+
+foreach ($events as $event) {
+    echo "Event: {$event->EventType} for resource {$event->ResourceId}\n";
+    echo "Date: " . date('Y-m-d H:i:s', $event->Date) . "\n";
+}
+```
+
+## Event Entity
+
+The `Event` object contains:
+
+<ResponseField name="ResourceId" type="string">
+  ID of the resource that triggered the event
+</ResponseField>
+
+<ResponseField name="EventType" type="string">
+  Type of event (e.g., PAYIN_NORMAL_SUCCEEDED)
+</ResponseField>
+
+<ResponseField name="Date" type="int">
+  Unix timestamp when the event occurred
+</ResponseField>
+
+## FilterEvents Object
+
+Use `FilterEvents` to narrow down your query:
+
+<ResponseField name="EventType" type="string">
+  Filter by specific event type
+</ResponseField>
+
+<ResponseField name="BeforeDate" type="int">
+  Unix timestamp - retrieve events before this date
+</ResponseField>
+
+<ResponseField name="AfterDate" type="int">
+  Unix timestamp - retrieve events after this date
+</ResponseField>
+
+## Event Types
+
+See the [Hooks API](/api/hooks#available-event-types) for a complete list of available event types.
+
+## Use Cases
+
+### Polling for Recent Events
+
+```php
+// Poll for events every minute
+function pollRecentEvents($api, $lastCheckedTimestamp) {
+    $filter = new MangoPay\FilterEvents();
+    $filter->AfterDate = $lastCheckedTimestamp;
+    
+    $pagination = new MangoPay\Pagination(1, 100);
+    $events = $api->Events->GetAll($pagination, $filter);
+    
+    foreach ($events as $event) {
+        processEvent($event);
+    }
+    
+    return time(); // Return new timestamp for next poll
+}
+
+// Store last checked timestamp
+$lastChecked = getLastCheckedTimestamp(); // From your database
+
+while (true) {
+    $lastChecked = pollRecentEvents($api, $lastChecked);
+    saveLastCheckedTimestamp($lastChecked); // Save to database
+    sleep(60); // Wait 1 minute
+}
+```
+
+### Retrieving Events for a Specific Date Range
+
+```php
+// Get all failed PayIns from last week
+$filter = new MangoPay\FilterEvents();
+$filter->EventType = 'PAYIN_NORMAL_FAILED';
+$filter->AfterDate = strtotime('-7 days');
+$filter->BeforeDate = time();
+
+$pagination = new MangoPay\Pagination(1, 100);
+$failedPayIns = $api->Events->GetAll($pagination, $filter);
+
+echo "Failed PayIns in last week: " . count($failedPayIns) . "\n";
+
+foreach ($failedPayIns as $event) {
+    $payIn = $api->PayIns->Get($event->ResourceId);
+    echo "PayIn {$payIn->Id}: {$payIn->ResultMessage}\n";
+}
+```
+
+### Processing All Event Types
+
+```php
+// Get all events from today
+$filter = new MangoPay\FilterEvents();
+$filter->AfterDate = strtotime('today midnight');
+
+$pagination = new MangoPay\Pagination(1, 100);
+$events = $api->Events->GetAll($pagination, $filter);
+
+$eventStats = [];
+
+foreach ($events as $event) {
+    $type = $event->EventType;
+    $eventStats[$type] = ($eventStats[$type] ?? 0) + 1;
+}
+
+echo "Event statistics for today:\n";
+foreach ($eventStats as $type => $count) {
+    echo "  {$type}: {$count}\n";
+}
+```
+
+### Building a Webhook Fallback System
+
+```php
+// Use events as a backup if webhook delivery fails
+class EventProcessor {
+    private $api;
+    private $lastProcessedEvent;
+    
+    public function __construct($api) {
+        $this->api = $api;
+        $this->lastProcessedEvent = $this->getLastProcessedEventDate();
+    }
+    
+    public function processNewEvents() {
+        $filter = new MangoPay\FilterEvents();
+        $filter->AfterDate = $this->lastProcessedEvent;
+        
+        $pagination = new MangoPay\Pagination(1, 100);
+        $events = $this->api->Events->GetAll($pagination, $filter);
+        
+        foreach ($events as $event) {
+            if (!$this->hasProcessedEvent($event->ResourceId, $event->EventType)) {
+                $this->handleEvent($event);
+                $this->markEventAsProcessed($event);
+            }
+        }
+        
+        if (count($events) > 0) {
+            $this->lastProcessedEvent = max(array_map(function($e) {
+                return $e->Date;
+            }, $events));
+            $this->saveLastProcessedEventDate($this->lastProcessedEvent);
+        }
+    }
+    
+    private function handleEvent($event) {
+        switch ($event->EventType) {
+            case 'PAYIN_NORMAL_SUCCEEDED':
+                $payIn = $this->api->PayIns->Get($event->ResourceId);
+                $this->processSuccessfulPayIn($payIn);
+                break;
+            // Handle other event types...
+        }
+    }
+    
+    // Implement these methods based on your storage
+    private function getLastProcessedEventDate() { /* ... */ }
+    private function saveLastProcessedEventDate($date) { /* ... */ }
+    private function hasProcessedEvent($resourceId, $eventType) { /* ... */ }
+    private function markEventAsProcessed($event) { /* ... */ }
+    private function processSuccessfulPayIn($payIn) { /* ... */ }
+}
+
+// Run periodically via cron
+$processor = new EventProcessor($api);
+$processor->processNewEvents();
+```
+
+## Pagination Example
+
+```php
+// Process all events in batches
+function processAllEvents($api, $filter) {
+    $page = 1;
+    $perPage = 100;
+    
+    do {
+        $pagination = new MangoPay\Pagination($page, $perPage);
+        $events = $api->Events->GetAll($pagination, $filter);
+        
+        foreach ($events as $event) {
+            processEvent($event);
+        }
+        
+        $page++;
+        $hasMore = count($events) === $perPage;
+        
+    } while ($hasMore);
+}
+
+$filter = new MangoPay\FilterEvents();
+$filter->AfterDate = strtotime('-30 days');
+processAllEvents($api, $filter);
+```
+
+<Tip>
+Use events for:
+- Debugging webhook delivery issues
+- Auditing and compliance reporting
+- Backfilling missed webhook notifications
+- Generating historical reports
+- Monitoring platform activity
+</Tip>
+
+<Warning>
+Events are stored for a limited time (typically 90 days). For long-term audit trails, store events in your own database as you process them.
+</Warning>
+
+## See Also
+
+- [Hooks API](/api/hooks) - Real-time webhook notifications
+- [Webhooks Guide](/guides/webhooks) - Complete webhook setup guide
+- [PayIns API](/api/payins)
+- [PayOuts API](/api/payouts)

@@ -1,0 +1,339 @@
+---
+title: "ApiHooks"
+description: "API methods for managing webhooks (hooks) and notifications"
+---
+
+## Overview
+
+The `ApiHooks` class provides methods for managing webhooks (called "hooks" in Mangopay). Webhooks allow you to receive real-time notifications when events occur on your platform.
+
+## Methods
+
+### Create
+
+Create a new webhook.
+
+```php
+public function Create(Hook $hook, ?string $idempotencyKey = null): Hook
+```
+
+<ParamField path="hook" type="Hook" required>
+  Hook object with EventType and Url
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Idempotency key for request replication
+</ParamField>
+
+**Returns:** Created `Hook` object
+
+**Example:**
+
+```php
+$hook = new MangoPay\Hook();
+$hook->EventType = 'PAYIN_NORMAL_SUCCEEDED';
+$hook->Url = 'https://yoursite.com/webhooks/mangopay';
+$hook->Tag = 'Production webhook';
+
+$createdHook = $api->Hooks->Create($hook);
+echo "Hook created with ID: " . $createdHook->Id . "\n";
+```
+
+### Get
+
+Retrieve a webhook by ID.
+
+```php
+public function Get(string $hookId): Hook
+```
+
+<ParamField path="hookId" type="string" required>
+  Hook identifier
+</ParamField>
+
+**Returns:** `Hook` object
+
+**Example:**
+
+```php
+$hook = $api->Hooks->Get($hookId);
+echo "Event Type: " . $hook->EventType . "\n";
+echo "Status: " . $hook->Status . "\n";
+echo "Validity: " . $hook->Validity . "\n";
+```
+
+### Update
+
+Update an existing webhook.
+
+```php
+public function Update(Hook $hook): Hook
+```
+
+<ParamField path="hook" type="Hook" required>
+  Hook object with updated properties
+</ParamField>
+
+**Returns:** Updated `Hook` object
+
+**Example:**
+
+```php
+$hook = $api->Hooks->Get($hookId);
+$hook->Status = 'DISABLED'; // Temporarily disable the webhook
+$hook->Url = 'https://newdomain.com/webhooks/mangopay';
+
+$updatedHook = $api->Hooks->Update($hook);
+```
+
+### GetAll
+
+Retrieve all webhooks.
+
+```php
+public function GetAll(?Pagination &$pagination = null, ?Sorting $sorting = null): array
+```
+
+<ParamField path="pagination" type="Pagination">
+  Pagination parameters (passed by reference)
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting parameters
+</ParamField>
+
+**Returns:** Array of `Hook` objects
+
+**Example:**
+
+```php
+$pagination = new MangoPay\Pagination(1, 100);
+$sorting = new MangoPay\Sorting();
+$sorting->AddField('CreationDate', 'DESC');
+
+$hooks = $api->Hooks->GetAll($pagination, $sorting);
+
+foreach ($hooks as $hook) {
+    echo "{$hook->EventType} -> {$hook->Url} (Status: {$hook->Status})\n";
+}
+```
+
+## Hook Entity
+
+The `Hook` object contains:
+
+<ResponseField name="Id" type="string">
+  Unique identifier
+</ResponseField>
+
+<ResponseField name="EventType" type="string">
+  Type of event to listen for (e.g., PAYIN_NORMAL_SUCCEEDED)
+</ResponseField>
+
+<ResponseField name="Url" type="string">
+  Your webhook endpoint URL (must be HTTPS)
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  Webhook status (ENABLED, DISABLED)
+</ResponseField>
+
+<ResponseField name="Validity" type="string">
+  Whether the webhook is valid (VALID, INVALID)
+</ResponseField>
+
+<ResponseField name="Tag" type="string">
+  Custom tag for your reference
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of creation
+</ResponseField>
+
+## Available Event Types
+
+Common event types you can subscribe to:
+
+### PayIn Events
+- `PAYIN_NORMAL_CREATED`
+- `PAYIN_NORMAL_SUCCEEDED`
+- `PAYIN_NORMAL_FAILED`
+- `PAYIN_REFUND_CREATED`
+- `PAYIN_REFUND_SUCCEEDED`
+- `PAYIN_REFUND_FAILED`
+
+### PayOut Events
+- `PAYOUT_NORMAL_CREATED`
+- `PAYOUT_NORMAL_SUCCEEDED`
+- `PAYOUT_NORMAL_FAILED`
+- `PAYOUT_REFUND_CREATED`
+- `PAYOUT_REFUND_SUCCEEDED`
+- `PAYOUT_REFUND_FAILED`
+
+### Transfer Events
+- `TRANSFER_NORMAL_CREATED`
+- `TRANSFER_NORMAL_SUCCEEDED`
+- `TRANSFER_NORMAL_FAILED`
+- `TRANSFER_REFUND_CREATED`
+- `TRANSFER_REFUND_SUCCEEDED`
+- `TRANSFER_REFUND_FAILED`
+
+### KYC Events
+- `KYC_CREATED`
+- `KYC_VALIDATION_ASKED`
+- `KYC_SUCCEEDED`
+- `KYC_FAILED`
+- `KYC_OUTDATED`
+
+### UBO Declaration Events
+- `UBO_DECLARATION_CREATED`
+- `UBO_DECLARATION_VALIDATION_ASKED`
+- `UBO_DECLARATION_VALIDATED`
+- `UBO_DECLARATION_REFUSED`
+- `UBO_DECLARATION_INCOMPLETE`
+
+### Mandate Events
+- `MANDATE_CREATED`
+- `MANDATE_SUBMITTED`
+- `MANDATE_ACTIVATED`
+- `MANDATE_FAILED`
+
+### Dispute Events
+- `DISPUTE_CREATED`
+- `DISPUTE_SUBMITTED`
+- `DISPUTE_ACTION_REQUIRED`
+- `DISPUTE_FURTHER_ACTION_REQUIRED`
+- `DISPUTE_CLOSED`
+- `DISPUTE_SENT_TO_BANK`
+
+### PreAuthorization Events
+- `PREAUTHORIZATION_PAYMENT_WAITING`
+- `PREAUTHORIZATION_PAYMENT_EXPIRED`
+- `PREAUTHORIZATION_PAYMENT_CANCELED`
+- `PREAUTHORIZATION_PAYMENT_VALIDATED`
+
+## Complete Webhook Setup
+
+```php
+// Create webhooks for common payment events
+$eventTypes = [
+    'PAYIN_NORMAL_SUCCEEDED',
+    'PAYIN_NORMAL_FAILED',
+    'PAYOUT_NORMAL_SUCCEEDED',
+    'PAYOUT_NORMAL_FAILED',
+    'TRANSFER_NORMAL_SUCCEEDED',
+    'KYC_SUCCEEDED',
+    'KYC_FAILED',
+    'DISPUTE_CREATED'
+];
+
+foreach ($eventTypes as $eventType) {
+    $hook = new MangoPay\Hook();
+    $hook->EventType = $eventType;
+    $hook->Url = 'https://yoursite.com/webhooks/mangopay';
+    $hook->Tag = "Prod: {$eventType}";
+    
+    try {
+        $createdHook = $api->Hooks->Create($hook);
+        echo "Created hook for {$eventType}: {$createdHook->Id}\n";
+    } catch (Exception $e) {
+        echo "Failed to create hook for {$eventType}: {$e->getMessage()}\n";
+    }
+}
+```
+
+## Webhook Endpoint Implementation
+
+```php
+// Your webhook endpoint: https://yoursite.com/webhooks/mangopay
+
+// Get the JSON payload
+$payload = file_get_contents('php://input');
+$data = json_decode($payload, true);
+
+if (!$data) {
+    http_response_code(400);
+    exit('Invalid JSON');
+}
+
+// Extract event details
+$eventType = $data['EventType'];
+$resourceId = $data['RessourceId']; // Note: Mangopay uses 'Ressource' (French spelling)
+$date = $data['Date'];
+
+// Log the webhook
+error_log("Webhook received: {$eventType} for resource {$resourceId}");
+
+// Handle the event
+switch ($eventType) {
+    case 'PAYIN_NORMAL_SUCCEEDED':
+        $payIn = $api->PayIns->Get($resourceId);
+        // Process successful payment
+        updateOrderStatus($payIn->Tag, 'paid');
+        break;
+        
+    case 'PAYIN_NORMAL_FAILED':
+        $payIn = $api->PayIns->Get($resourceId);
+        // Handle failed payment
+        notifyCustomer($payIn->AuthorId, 'payment_failed');
+        break;
+        
+    case 'KYC_SUCCEEDED':
+        $kycDoc = $api->KycDocuments->Get($resourceId);
+        // Update user verification status
+        updateUserKYCStatus($kycDoc->UserId, 'verified');
+        break;
+        
+    case 'DISPUTE_CREATED':
+        $dispute = $api->Disputes->Get($resourceId);
+        // Alert admin about new dispute
+        sendAdminAlert('New dispute', $dispute);
+        break;
+        
+    default:
+        error_log("Unhandled event type: {$eventType}");
+}
+
+// Always return 200 OK
+http_response_code(200);
+echo 'OK';
+```
+
+<Warning>
+Your webhook endpoint must:
+- Use HTTPS (HTTP is not supported)
+- Return a 200 status code within 2 seconds
+- Be publicly accessible (no IP restrictions)
+- Handle duplicate notifications (idempotency)
+</Warning>
+
+## Testing Webhooks
+
+```php
+// Get webhook and check its validity
+$hook = $api->Hooks->Get($hookId);
+
+if ($hook->Validity === 'INVALID') {
+    echo "Webhook is invalid. Check your endpoint.\n";
+    echo "URL: " . $hook->Url . "\n";
+    
+    // Try updating the URL
+    $hook->Url = 'https://corrected-url.com/webhooks';
+    $api->Hooks->Update($hook);
+}
+
+// Temporarily disable during maintenance
+$hook->Status = 'DISABLED';
+$api->Hooks->Update($hook);
+
+// Re-enable after maintenance
+$hook->Status = 'ENABLED';
+$api->Hooks->Update($hook);
+```
+
+## See Also
+
+- [Webhooks Guide](/guides/webhooks)
+- [Events API](/api/events)
+- [PayIns API](/api/payins)
+- [PayOuts API](/api/payouts)

@@ -1,0 +1,553 @@
+---
+title: 'KYC Documents'
+description: 'Upload and manage KYC verification documents for users'
+---
+
+## Overview
+
+KYC (Know Your Customer) documents are required to verify user identity before they can process large transactions. Mangopay requires different documents based on:
+
+- User type (natural or legal)
+- Transaction volume
+- Regulatory requirements
+
+## Document Types
+
+Common document types include:
+
+- **IDENTITY_PROOF**: Passport, ID card, driving license
+- **REGISTRATION_PROOF**: Company registration documents
+- **ARTICLES_OF_ASSOCIATION**: Company articles
+- **SHAREHOLDER_DECLARATION**: UBO (Ultimate Beneficial Owner) declaration
+- **ADDRESS_PROOF**: Utility bill, bank statement
+
+## Creating a KYC Document
+
+<Steps>
+  <Step title="Create Document Object">
+    Initialize a KYC document for a user:
+    
+    ```php
+    $kycDocument = new MangoPay\KycDocument();
+    $kycDocument->Type = 'IDENTITY_PROOF';
+    $kycDocument->Tag = 'Custom reference';
+    
+    try {
+        $createdDoc = $api->Users->CreateKycDocument($userId, $kycDocument);
+        echo "Document created with ID: " . $createdDoc->Id;
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        echo "Error: " . $e->GetMessage();
+    }
+    ```
+  </Step>
+
+  <Step title="Upload Document Pages">
+    Add pages (images/PDFs) to the document:
+    
+    ```php
+    // Upload from file
+    try {
+        $api->Users->CreateKycPageFromFile(
+            $userId,
+            $kycDocumentId,
+            '/path/to/document.jpg'
+        );
+        echo "Page uploaded successfully";
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        echo "Error: " . $e->GetMessage();
+    }
+    ```
+    
+    Or upload from base64:
+    
+    ```php
+    $kycPage = new MangoPay\KycPage();
+    $kycPage->File = base64_encode(file_get_contents('/path/to/document.jpg'));
+    
+    try {
+        $api->Users->CreateKycPage($userId, $kycDocumentId, $kycPage);
+        echo "Page uploaded";
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        echo "Error: " . $e->GetMessage();
+    }
+    ```
+  </Step>
+
+  <Step title="Submit for Review">
+    Once all pages are uploaded, submit the document:
+    
+    ```php
+    $kycDocument = $api->Users->GetKycDocument($userId, $kycDocumentId);
+    $kycDocument->Status = 'VALIDATION_ASKED';
+    
+    try {
+        $submittedDoc = $api->Users->UpdateKycDocument($userId, $kycDocument);
+        echo "Document submitted for review";
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        echo "Error: " . $e->GetMessage();
+    }
+    ```
+  </Step>
+</Steps>
+
+## Complete KYC Document Upload
+
+Full example with error handling:
+
+```php
+function uploadKycDocument($api, $userId, $documentType, $filePath) {
+    try {
+        // Step 1: Create document
+        $kycDocument = new MangoPay\KycDocument();
+        $kycDocument->Type = $documentType;
+        $createdDoc = $api->Users->CreateKycDocument($userId, $kycDocument);
+        
+        // Step 2: Upload file
+        $api->Users->CreateKycPageFromFile(
+            $userId,
+            $createdDoc->Id,
+            $filePath
+        );
+        
+        // Step 3: Submit for validation
+        $kycDocument = $api->Users->GetKycDocument($userId, $createdDoc->Id);
+        $kycDocument->Status = 'VALIDATION_ASKED';
+        $submittedDoc = $api->Users->UpdateKycDocument($userId, $kycDocument);
+        
+        return [
+            'success' => true,
+            'documentId' => $submittedDoc->Id,
+            'status' => $submittedDoc->Status
+        ];
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        return [
+            'success' => false,
+            'error' => $e->GetMessage()
+        ];
+    }
+}
+
+// Usage
+$result = uploadKycDocument(
+    $api,
+    $userId,
+    'IDENTITY_PROOF',
+    '/path/to/passport.jpg'
+);
+
+if ($result['success']) {
+    echo "Document uploaded: " . $result['documentId'];
+} else {
+    echo "Upload failed: " . $result['error'];
+}
+```
+
+## Uploading Multiple Pages
+
+Many documents require multiple pages (e.g., front and back of ID):
+
+```php
+function uploadMultiPageDocument($api, $userId, $documentType, $filePaths) {
+    try {
+        // Create document
+        $kycDocument = new MangoPay\KycDocument();
+        $kycDocument->Type = $documentType;
+        $createdDoc = $api->Users->CreateKycDocument($userId, $kycDocument);
+        
+        // Upload each page
+        foreach ($filePaths as $filePath) {
+            $api->Users->CreateKycPageFromFile(
+                $userId,
+                $createdDoc->Id,
+                $filePath
+            );
+        }
+        
+        // Submit for validation
+        $kycDocument = $api->Users->GetKycDocument($userId, $createdDoc->Id);
+        $kycDocument->Status = 'VALIDATION_ASKED';
+        $submittedDoc = $api->Users->UpdateKycDocument($userId, $kycDocument);
+        
+        return $submittedDoc;
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        throw $e;
+    }
+}
+
+// Upload both sides of ID card
+$document = uploadMultiPageDocument(
+    $api,
+    $userId,
+    'IDENTITY_PROOF',
+    [
+        '/path/to/id-front.jpg',
+        '/path/to/id-back.jpg'
+    ]
+);
+
+echo "Document submitted: " . $document->Id;
+```
+
+## Retrieving KYC Documents
+
+### Get a Specific Document
+
+```php
+try {
+    $kycDocument = $api->Users->GetKycDocument($userId, $kycDocumentId);
+    
+    echo "Document type: " . $kycDocument->Type . "\n";
+    echo "Status: " . $kycDocument->Status . "\n";
+    echo "Refusal reason: " . $kycDocument->RefusedReasonMessage . "\n";
+    
+    if (!empty($kycDocument->Flags)) {
+        echo "Flags:\n";
+        foreach ($kycDocument->Flags as $flag) {
+            echo "  - " . $flag . "\n";
+        }
+    }
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+### Get All Documents for User
+
+```php
+$pagination = new MangoPay\Pagination(1, 20);
+
+try {
+    $documents = $api->Users->GetKycDocuments($userId, $pagination);
+    
+    foreach ($documents as $doc) {
+        echo "Document: " . $doc->Type . "\n";
+        echo "Status: " . $doc->Status . "\n";
+        echo "Created: " . date('Y-m-d', $doc->CreationDate) . "\n\n";
+    }
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+### Filter Documents
+
+```php
+$pagination = new MangoPay\Pagination(1, 20);
+$filter = new MangoPay\FilterKycDocuments();
+$filter->Status = 'VALIDATED';
+
+$validatedDocs = $api->Users->GetKycDocuments($userId, $pagination, null, $filter);
+```
+
+### Get All KYC Documents (Platform-wide)
+
+```php
+$pagination = new MangoPay\Pagination(1, 50);
+
+try {
+    $allDocuments = $api->KycDocuments->GetAll($pagination);
+    
+    foreach ($allDocuments as $doc) {
+        echo "User: " . $doc->UserId . "\n";
+        echo "Type: " . $doc->Type . "\n";
+        echo "Status: " . $doc->Status . "\n\n";
+    }
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Document Statuses
+
+KYC documents can have the following statuses:
+
+- **CREATED**: Document created but not submitted
+- **VALIDATION_ASKED**: Submitted for review
+- **VALIDATED**: Approved by Mangopay
+- **REFUSED**: Rejected (check RefusedReasonMessage)
+- **OUT_OF_DATE**: Document expired
+
+```php
+$document = $api->Users->GetKycDocument($userId, $kycDocumentId);
+
+switch ($document->Status) {
+    case 'CREATED':
+        echo "Upload pages and submit document";
+        break;
+    case 'VALIDATION_ASKED':
+        echo "Document is under review";
+        break;
+    case 'VALIDATED':
+        echo "Document approved!";
+        break;
+    case 'REFUSED':
+        echo "Document rejected: " . $document->RefusedReasonMessage;
+        if (!empty($document->Flags)) {
+            echo "\nIssues: " . implode(', ', $document->Flags);
+        }
+        break;
+    case 'OUT_OF_DATE':
+        echo "Document expired, please upload a new one";
+        break;
+}
+```
+
+## Viewing Document Pages
+
+Create temporary URLs to view document pages:
+
+```php
+try {
+    $pagination = new MangoPay\Pagination(1, 10);
+    $consults = $api->KycDocuments->CreateKycDocumentConsult(
+        $kycDocumentId,
+        $pagination
+    );
+    
+    foreach ($consults as $consult) {
+        echo "Page URL: " . $consult->Url . "\n";
+        echo "Expires: " . date('Y-m-d H:i:s', $consult->ExpirationDate) . "\n";
+    }
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Handling Refused Documents
+
+When documents are refused, create new ones:
+
+```php
+function handleRefusedDocument($api, $userId, $refusedDocId) {
+    try {
+        // Get refused document to understand rejection reason
+        $refusedDoc = $api->Users->GetKycDocument($userId, $refusedDocId);
+        
+        if ($refusedDoc->Status === 'REFUSED') {
+            echo "Rejection reason: " . $refusedDoc->RefusedReasonMessage . "\n";
+            echo "Issues found:\n";
+            
+            foreach ($refusedDoc->Flags as $flag) {
+                echo "  - " . $flag . "\n";
+            }
+            
+            // Create new document with corrections
+            $newDoc = new MangoPay\KycDocument();
+            $newDoc->Type = $refusedDoc->Type;
+            $newDoc->Tag = 'Resubmission for: ' . $refusedDocId;
+            
+            return $api->Users->CreateKycDocument($userId, $newDoc);
+        }
+        
+        return null;
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        echo "Error: " . $e->GetMessage();
+        return null;
+    }
+}
+
+// Usage
+$newDocument = handleRefusedDocument($api, $userId, $refusedDocumentId);
+if ($newDocument) {
+    echo "New document created: " . $newDocument->Id;
+}
+```
+
+## Document Requirements
+
+### Natural Users
+
+For individual users:
+
+```php
+function uploadNaturalUserDocuments($api, $userId, $identityProofPath, $addressProofPath) {
+    $results = [];
+    
+    // Identity proof (required)
+    $identityDoc = new MangoPay\KycDocument();
+    $identityDoc->Type = 'IDENTITY_PROOF';
+    $createdIdentity = $api->Users->CreateKycDocument($userId, $identityDoc);
+    
+    $api->Users->CreateKycPageFromFile($userId, $createdIdentity->Id, $identityProofPath);
+    
+    $createdIdentity->Status = 'VALIDATION_ASKED';
+    $results['identity'] = $api->Users->UpdateKycDocument($userId, $createdIdentity);
+    
+    // Address proof (if needed)
+    if ($addressProofPath) {
+        $addressDoc = new MangoPay\KycDocument();
+        $addressDoc->Type = 'ADDRESS_PROOF';
+        $createdAddress = $api->Users->CreateKycDocument($userId, $addressDoc);
+        
+        $api->Users->CreateKycPageFromFile($userId, $createdAddress->Id, $addressProofPath);
+        
+        $createdAddress->Status = 'VALIDATION_ASKED';
+        $results['address'] = $api->Users->UpdateKycDocument($userId, $createdAddress);
+    }
+    
+    return $results;
+}
+```
+
+### Legal Users
+
+For business users:
+
+```php
+function uploadLegalUserDocuments($api, $userId, $documents) {
+    $results = [];
+    
+    // Registration proof
+    if (isset($documents['registration'])) {
+        $doc = new MangoPay\KycDocument();
+        $doc->Type = 'REGISTRATION_PROOF';
+        $created = $api->Users->CreateKycDocument($userId, $doc);
+        $api->Users->CreateKycPageFromFile($userId, $created->Id, $documents['registration']);
+        $created->Status = 'VALIDATION_ASKED';
+        $results['registration'] = $api->Users->UpdateKycDocument($userId, $created);
+    }
+    
+    // Articles of association
+    if (isset($documents['articles'])) {
+        $doc = new MangoPay\KycDocument();
+        $doc->Type = 'ARTICLES_OF_ASSOCIATION';
+        $created = $api->Users->CreateKycDocument($userId, $doc);
+        $api->Users->CreateKycPageFromFile($userId, $created->Id, $documents['articles']);
+        $created->Status = 'VALIDATION_ASKED';
+        $results['articles'] = $api->Users->UpdateKycDocument($userId, $created);
+    }
+    
+    // Shareholder declaration
+    if (isset($documents['shareholder'])) {
+        $doc = new MangoPay\KycDocument();
+        $doc->Type = 'SHAREHOLDER_DECLARATION';
+        $created = $api->Users->CreateKycDocument($userId, $doc);
+        $api->Users->CreateKycPageFromFile($userId, $created->Id, $documents['shareholder']);
+        $created->Status = 'VALIDATION_ASKED';
+        $results['shareholder'] = $api->Users->UpdateKycDocument($userId, $created);
+    }
+    
+    return $results;
+}
+```
+
+## File Validation
+
+Validate files before uploading:
+
+```php
+function validateDocumentFile($filePath) {
+    $errors = [];
+    
+    // Check if file exists
+    if (!file_exists($filePath)) {
+        $errors[] = 'File does not exist';
+        return $errors;
+    }
+    
+    // Check file size (max 7MB)
+    $maxSize = 7 * 1024 * 1024;
+    $fileSize = filesize($filePath);
+    if ($fileSize > $maxSize) {
+        $errors[] = 'File size exceeds 7MB limit';
+    }
+    
+    // Check file type
+    $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+    $mimeType = mime_content_type($filePath);
+    if (!in_array($mimeType, $allowedTypes)) {
+        $errors[] = 'File type not supported. Use JPEG, PNG, or PDF';
+    }
+    
+    // Check image dimensions (if image)
+    if (strpos($mimeType, 'image') === 0) {
+        $imageInfo = getimagesize($filePath);
+        if ($imageInfo[0] < 300 || $imageInfo[1] < 300) {
+            $errors[] = 'Image dimensions too small (minimum 300x300)';
+        }
+    }
+    
+    return $errors;
+}
+
+// Usage
+$errors = validateDocumentFile('/path/to/document.jpg');
+if (empty($errors)) {
+    // Upload document
+    $api->Users->CreateKycPageFromFile($userId, $kycDocumentId, '/path/to/document.jpg');
+} else {
+    foreach ($errors as $error) {
+        echo "Validation error: " . $error . "\n";
+    }
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Clear Images" icon="image">
+    Ensure documents are high quality and clearly legible.
+  </Card>
+  
+  <Card title="Complete Documents" icon="file-circle-check">
+    Upload all required pages (front and back of IDs).
+  </Card>
+  
+  <Card title="Valid Documents" icon="calendar-check">
+    Ensure documents are not expired and match user details.
+  </Card>
+  
+  <Card title="Handle Rejections" icon="rotate">
+    Implement a clear process for resubmitting rejected documents.
+  </Card>
+</CardGroup>
+
+## Using Idempotency
+
+```php
+$kycDocument = new MangoPay\KycDocument();
+$kycDocument->Type = 'IDENTITY_PROOF';
+
+$idempotencyKey = 'kyc_' . $userId . '_' . time();
+
+$createdDoc = $api->Users->CreateKycDocument($userId, $kycDocument, $idempotencyKey);
+```
+
+## Monitoring KYC Status
+
+Check user's overall KYC status:
+
+```php
+function checkUserKycStatus($api, $userId) {
+    try {
+        $user = $api->Users->Get($userId);
+        
+        return [
+            'kycLevel' => $user->KYCLevel,
+            'identityProof' => $user->ProofOfIdentity,
+            'addressProof' => $user->ProofOfAddress
+        ];
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        return null;
+    }
+}
+
+$status = checkUserKycStatus($api, $userId);
+if ($status) {
+    echo "KYC Level: " . $status['kycLevel'] . "\n";
+    echo "Identity verified: " . ($status['identityProof'] ? 'Yes' : 'No') . "\n";
+    echo "Address verified: " . ($status['addressProof'] ? 'Yes' : 'No');
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Creating Users" icon="user-plus" href="/guides/creating-users">
+    Learn about user creation and management
+  </Card>
+  
+  <Card title="Webhooks" icon="bell" href="/guides/webhooks">
+    Get notified when documents are validated
+  </Card>
+</CardGroup>

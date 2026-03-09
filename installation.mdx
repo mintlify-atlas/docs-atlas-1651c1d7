@@ -1,0 +1,174 @@
+---
+title: 'Installation'
+description: 'Install the Mangopay PHP SDK via Composer or manual download'
+---
+
+## Installation Methods
+
+The Mangopay PHP SDK can be installed using Composer (recommended) or manually. Choose the method that best fits your project setup.
+
+## Installation with Composer (Recommended)
+
+[Composer](https://getcomposer.org/) is the recommended installation method as it automatically handles dependencies, including the required PSR Log library.
+
+<Steps>
+  <Step title="Install Composer">
+    If you don't have Composer installed, follow the [official installation instructions](https://getcomposer.org/doc/00-intro.md).
+  </Step>
+  
+  <Step title="Add the Mangopay SDK Dependency">
+    Run the following command in your project directory:
+    
+    ```bash
+    composer require mangopay4/php-sdk
+    ```
+    
+    This command adds the Mangopay SDK to your `composer.json` file and downloads the package.
+  </Step>
+  
+  <Step title="Update Dependencies">
+    Update your dependencies to ensure all requirements are met:
+    
+    ```bash
+    composer update
+    ```
+  </Step>
+  
+  <Step title="Include the Autoloader">
+    In your PHP code, include Composer's autoloader:
+    
+    ```php
+    require_once '/path/to/your-project/vendor/autoload.php';
+    ```
+  </Step>
+</Steps>
+
+<Info>
+  The SDK is available on [Packagist](https://packagist.org/packages/mangopay4/php-sdk) as `mangopay4/php-sdk`.
+</Info>
+
+### Verifying Composer Installation
+
+After installation, verify that the SDK is available:
+
+```php
+require_once 'vendor/autoload.php';
+
+use MangoPay\MangoPayApi;
+
+$api = new MangoPayApi();
+echo "Mangopay SDK installed successfully!";
+```
+
+## Manual Installation
+
+If you're not using Composer, you can install the SDK manually. However, you'll need to manage dependencies yourself.
+
+### Option 1: Using PSR-4 Autoloader
+
+The SDK complies with PSR-4 autoloading standards with namespace prefix `MangoPay\` and base directory at your project root.
+
+<Steps>
+  <Step title="Download the SDK">
+    Download the SDK from the [GitHub repository](https://github.com/Mangopay/mangopay2-php-sdk).
+  </Step>
+  
+  <Step title="Place in Your Project">
+    Extract the SDK to your project directory, ensuring the `MangoPay` folder is accessible.
+  </Step>
+  
+  <Step title="Include the Autoloader">
+    Use the SDK's built-in autoloader:
+    
+    ```php
+    require_once '/path/to/your-project/MangoPay/Autoloader.php';
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+  When using manual installation with the PSR-4 autoloader, you must manually install the **psr/log** dependency.
+</Warning>
+
+### Option 2: Complete Package with Dependencies
+
+For a simpler manual installation that includes all dependencies:
+
+<Steps>
+  <Step title="Download the Complete Package">
+    Go to the [Releases page](https://github.com/Mangopay/mangopay2-php-sdk/releases) and download the `mangopay2-php-sdk-[RELEASE_NAME].zip` file.
+  </Step>
+  
+  <Step title="Extract the Archive">
+    Uncompress the ZIP file to your desired location.
+  </Step>
+  
+  <Step title="Include the Autoloader">
+    The package includes a vendor directory with all dependencies:
+    
+    ```php
+    require_once '/path/to/your-project/mangopay2-php-sdk/vendor/autoload.php';
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+  This method is ideal if you cannot use Composer but still want all dependencies bundled together.
+</Tip>
+
+## Comparing Installation Methods
+
+| Feature | Composer | Manual (PSR-4) | Manual (Complete) |
+|---------|----------|----------------|-------------------|
+| Dependency Management | Automatic | Manual | Included |
+| Updates | Easy via `composer update` | Manual download | Manual download |
+| Setup Complexity | Low | Medium | Low |
+| Recommended | ✅ Yes | Only if needed | Alternative |
+
+## Post-Installation Steps
+
+After installation, you're ready to configure the SDK:
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/configuration">
+    Set up your API credentials and environment settings
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Create your first user and make your first API call
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+### Authentication Issues After SDK Update
+
+If you experience authentication problems or temporary token file issues after updating the SDK (particularly to v2.0), delete your temporary token file:
+
+```bash
+# Delete the temporary folder contents (adjust path as needed)
+rm -rf /tmp/mangopay/*
+```
+
+The token file will be regenerated correctly on the next API request.
+
+### Missing Dependencies
+
+If you encounter errors about missing classes or namespaces:
+
+<CodeGroup>
+```bash Composer
+composer install
+composer dump-autoload
+```
+
+```bash Manual
+# Ensure psr/log is installed and accessible
+# Check that all required PHP extensions are enabled
+php -m | grep curl
+php -m | grep openssl
+```
+</CodeGroup>
+
+## Next Steps
+
+With the SDK installed, proceed to configuration to set up your API credentials and start building your integration.

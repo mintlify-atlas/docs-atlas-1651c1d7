@@ -1,0 +1,428 @@
+---
+title: 'Legal User'
+description: 'Legal user entity representing a business or organization'
+---
+
+## Overview
+
+A Legal User represents a business, organization, or other legal entity in the Mangopay system. Legal users can create wallets, make payments, and perform financial operations on behalf of their organization.
+
+Mangopay provides two variants:
+- **UserLegal**: Standard legal user
+- **UserLegalSca**: Legal user with Strong Customer Authentication (SCA) support
+
+## UserLegal Properties
+
+### Base Properties (EntityBase)
+
+<ResponseField name="Id" type="string" required>
+  Unique identifier for the user (read-only)
+</ResponseField>
+
+<ResponseField name="Tag" type="string">
+  Custom data for your own use
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of when the user was created (read-only)
+</ResponseField>
+
+### User Properties
+
+<ResponseField name="PersonType" type="string" required>
+  Type of user. Always "LEGAL" for legal users (read-only)
+</ResponseField>
+
+<ResponseField name="Email" type="string" required>
+  The organization's email address
+</ResponseField>
+
+<ResponseField name="KYCLevel" type="string">
+  KYC (Know Your Customer) level. Values: "LIGHT" or "REGULAR" (read-only)
+</ResponseField>
+
+<ResponseField name="TermsAndConditionsAccepted" type="bool">
+  Whether the organization has accepted the MANGOPAY Terms and Conditions
+</ResponseField>
+
+<ResponseField name="TermsAndConditionsAcceptedDate" type="int">
+  Unix timestamp of when the Terms and Conditions were accepted (read-only)
+</ResponseField>
+
+<ResponseField name="UserCategory" type="string">
+  Category of user. See UserCategory constants for possible values.
+</ResponseField>
+
+<ResponseField name="UserStatus" type="string">
+  Status of the user (read-only)
+</ResponseField>
+
+### Legal User Properties
+
+<ResponseField name="Name" type="string" required>
+  The legal name of the organization
+</ResponseField>
+
+<ResponseField name="LegalPersonType" type="string" required>
+  Type of legal entity. Possible values: "BUSINESS", "ORGANIZATION"
+</ResponseField>
+
+<ResponseField name="HeadquartersAddress" type="Address">
+  Address of the organization's headquarters
+</ResponseField>
+
+<ResponseField name="LegalRepresentativeFirstName" type="string" required>
+  First name of the legal representative
+</ResponseField>
+
+<ResponseField name="LegalRepresentativeLastName" type="string" required>
+  Last name of the legal representative
+</ResponseField>
+
+<ResponseField name="LegalRepresentativeAddress" type="Address">
+  Address of the legal representative
+</ResponseField>
+
+<ResponseField name="LegalRepresentativeEmail" type="string">
+  Email address of the legal representative
+</ResponseField>
+
+<ResponseField name="LegalRepresentativeBirthday" type="int" required>
+  Unix timestamp of the legal representative's date of birth
+</ResponseField>
+
+<ResponseField name="LegalRepresentativeNationality" type="string" required>
+  Nationality of the legal representative (ISO 3166-1 alpha-2 country code)
+</ResponseField>
+
+<ResponseField name="LegalRepresentativeCountryOfResidence" type="string" required>
+  Country of residence of the legal representative (ISO 3166-1 alpha-2 country code)
+</ResponseField>
+
+<ResponseField name="LegalRepresentativeProofOfIdentity" type="string">
+  ID of the KYC document for the legal representative's proof of identity (read-only)
+</ResponseField>
+
+<ResponseField name="Statute" type="string">
+  ID of the KYC document for the organization's statute (read-only)
+</ResponseField>
+
+<ResponseField name="ProofOfRegistration" type="string">
+  ID of the KYC document for proof of registration (read-only)
+</ResponseField>
+
+<ResponseField name="ShareholderDeclaration" type="string">
+  ID of the KYC document for shareholder declaration (read-only)
+</ResponseField>
+
+<ResponseField name="CompanyNumber" type="string">
+  Registration number of the company
+</ResponseField>
+
+## UserLegalSca Properties
+
+The UserLegalSca class provides enhanced legal user functionality with SCA (Strong Customer Authentication) support.
+
+### Base Properties (EntityBase)
+
+<ResponseField name="Id" type="string" required>
+  Unique identifier for the user (read-only)
+</ResponseField>
+
+<ResponseField name="Tag" type="string">
+  Custom data for your own use
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of when the user was created (read-only)
+</ResponseField>
+
+### User Properties
+
+<ResponseField name="PersonType" type="string" required>
+  Type of user. Always "LEGAL" for legal users (read-only)
+</ResponseField>
+
+<ResponseField name="Email" type="string" required>
+  The organization's email address
+</ResponseField>
+
+<ResponseField name="KYCLevel" type="string">
+  KYC level. Values: "LIGHT" or "REGULAR" (read-only)
+</ResponseField>
+
+<ResponseField name="TermsAndConditionsAccepted" type="bool">
+  Whether the organization has accepted the MANGOPAY Terms and Conditions
+</ResponseField>
+
+<ResponseField name="TermsAndConditionsAcceptedDate" type="int">
+  Unix timestamp of when the Terms and Conditions were accepted (read-only)
+</ResponseField>
+
+<ResponseField name="UserCategory" type="string">
+  Category of user. See UserCategory constants for possible values.
+</ResponseField>
+
+<ResponseField name="UserStatus" type="string">
+  Status of the user (read-only)
+</ResponseField>
+
+### Legal User SCA Properties
+
+<ResponseField name="Name" type="string" required>
+  The legal name of the organization
+</ResponseField>
+
+<ResponseField name="LegalPersonType" type="string" required>
+  Type of legal entity. Possible values: "BUSINESS", "PARTNERSHIP", "ORGANIZATION", "SOLETRADER"
+</ResponseField>
+
+<ResponseField name="HeadquartersAddress" type="Address">
+  Address of the organization's headquarters
+</ResponseField>
+
+<ResponseField name="LegalRepresentativeAddress" type="Address">
+  Address of the legal representative
+</ResponseField>
+
+<ResponseField name="ProofOfRegistration" type="string">
+  ID of the KYC document for proof of registration (read-only)
+</ResponseField>
+
+<ResponseField name="ShareholderDeclaration" type="string">
+  ID of the KYC document for shareholder declaration (read-only)
+</ResponseField>
+
+<ResponseField name="Statute" type="string">
+  ID of the KYC document for the organization's statute (read-only)
+</ResponseField>
+
+<ResponseField name="CompanyNumber" type="string">
+  Registration number of the company
+</ResponseField>
+
+<ResponseField name="LegalRepresentative" type="LegalRepresentative">
+  Information about the legal representative declared for the user
+</ResponseField>
+
+<ResponseField name="PendingUserAction" type="PendingUserAction">
+  Information about required user action when UserStatus is PENDING_USER_ACTION. Otherwise null.
+  
+  Contains a `RedirectUrl` property where the user should be redirected for actions like SCA enrollment.
+</ResponseField>
+
+<ResponseField name="ScaContext" type="string">
+  The SCA context for the user. Possible values: "USER_PRESENT", "USER_NOT_PRESENT"
+</ResponseField>
+
+## Example Usage
+
+### Creating a Standard Legal User
+
+```php
+$api = new MangoPay\MangoPayApi();
+
+$user = new MangoPay\UserLegal();
+$user->Name = 'Acme Corporation';
+$user->Email = 'contact@acme.com';
+$user->LegalPersonType = 'BUSINESS';
+$user->LegalRepresentativeFirstName = 'John';
+$user->LegalRepresentativeLastName = 'Doe';
+$user->LegalRepresentativeBirthday = mktime(0, 0, 0, 12, 21, 1975);
+$user->LegalRepresentativeNationality = 'GB';
+$user->LegalRepresentativeCountryOfResidence = 'GB';
+$user->CompanyNumber = '12345678';
+$user->Tag = 'Created from PHP SDK';
+
+// Optional: Add headquarters address
+$hqAddress = new MangoPay\Address();
+$hqAddress->AddressLine1 = '123 Business Street';
+$hqAddress->City = 'London';
+$hqAddress->PostalCode = 'EC1A 1BB';
+$hqAddress->Country = 'GB';
+$user->HeadquartersAddress = $hqAddress;
+
+// Optional: Add legal representative address
+$legalRepAddress = new MangoPay\Address();
+$legalRepAddress->AddressLine1 = '456 Representative Road';
+$legalRepAddress->City = 'London';
+$legalRepAddress->PostalCode = 'SW1A 1AA';
+$legalRepAddress->Country = 'GB';
+$user->LegalRepresentativeAddress = $legalRepAddress;
+
+$createdUser = $api->Users->Create($user);
+echo 'Legal user created with ID: ' . $createdUser->Id;
+```
+
+### Creating an SCA Legal User
+
+```php
+$api = new MangoPay\MangoPayApi();
+
+$user = new MangoPay\UserLegalSca();
+$user->Name = 'Tech Innovations SAS';
+$user->Email = 'contact@techinnovations.fr';
+$user->LegalPersonType = 'BUSINESS';
+$user->CompanyNumber = '987654321';
+$user->UserCategory = 'OWNER';
+$user->TermsAndConditionsAccepted = true;
+
+// Legal representative information
+$legalRep = new MangoPay\LegalRepresentative();
+$legalRep->FirstName = 'Marie';
+$legalRep->LastName = 'Dupont';
+$legalRep->Email = 'marie.dupont@techinnovations.fr';
+$legalRep->Birthday = mktime(0, 0, 0, 3, 15, 1980);
+$legalRep->Nationality = 'FR';
+$legalRep->CountryOfResidence = 'FR';
+$legalRep->PhoneNumber = '+33612345678';
+$legalRep->PhoneNumberCountry = 'FR';
+$user->LegalRepresentative = $legalRep;
+
+// Headquarters address
+$hqAddress = new MangoPay\Address();
+$hqAddress->AddressLine1 = '15 Rue de la Tech';
+$hqAddress->City = 'Paris';
+$hqAddress->PostalCode = '75001';
+$hqAddress->Country = 'FR';
+$user->HeadquartersAddress = $hqAddress;
+
+$createdUser = $api->Users->Create($user);
+echo 'SCA Legal user created with ID: ' . $createdUser->Id;
+```
+
+### Updating a Legal User
+
+```php
+$api = new MangoPay\MangoPayApi();
+
+// Get the existing legal user
+$user = $api->Users->GetLegal('user_123456');
+
+// Update properties
+$user->Email = 'newemail@acme.com';
+$user->CompanyNumber = '87654321';
+
+// Update legal representative email
+$user->LegalRepresentativeEmail = 'newrep@acme.com';
+
+// Save the changes
+$updatedUser = $api->Users->Update($user);
+echo 'Legal user updated successfully';
+```
+
+### Retrieving a Legal User
+
+```php
+$api = new MangoPay\MangoPayApi();
+
+// Get a specific legal user
+$user = $api->Users->GetLegal('user_123456');
+
+echo 'Organization: ' . $user->Name;
+echo 'Email: ' . $user->Email;
+echo 'Legal Person Type: ' . $user->LegalPersonType;
+echo 'Company Number: ' . $user->CompanyNumber;
+echo 'Legal Representative: ' . $user->LegalRepresentativeFirstName . ' ' . $user->LegalRepresentativeLastName;
+```
+
+### Working with SCA Legal Users
+
+```php
+$api = new MangoPay\MangoPayApi();
+
+// Get an SCA legal user
+$user = $api->Users->GetLegalSca('user_123456');
+
+// Check if user action is required
+if ($user->UserStatus === 'PENDING_USER_ACTION' && $user->PendingUserAction) {
+    $redirectUrl = $user->PendingUserAction->RedirectUrl;
+    // Redirect the legal representative to complete SCA enrollment
+    echo 'Legal representative must complete enrollment at: ' . $redirectUrl;
+}
+
+// Access legal representative details
+if ($user->LegalRepresentative) {
+    echo 'Representative: ' . $user->LegalRepresentative->FirstName . ' ' . $user->LegalRepresentative->LastName;
+    echo 'Phone: ' . $user->LegalRepresentative->PhoneNumber;
+}
+```
+
+### Validating Company Number Format
+
+```php
+$api = new MangoPay\MangoPayApi();
+
+$companyNumberDetails = new MangoPay\CompanyNumberDetails();
+$companyNumberDetails->CompanyNumber = '12345678';
+$companyNumberDetails->Country = 'GB';
+
+$validationResult = $api->Users->ValidateTheFormatOfUserData($companyNumberDetails);
+
+if ($validationResult->IsValid) {
+    echo 'Company number format is valid';
+} else {
+    echo 'Company number format is invalid';
+}
+```
+
+## Address Object
+
+The Address object used in `HeadquartersAddress` and `LegalRepresentativeAddress` properties:
+
+```php
+$address = new MangoPay\Address();
+$address->AddressLine1 = 'Street address';
+$address->AddressLine2 = 'Additional address info'; // Optional
+$address->City = 'City name';
+$address->Region = 'Region/State'; // Optional
+$address->PostalCode = 'Postal code';
+$address->Country = 'GB'; // ISO 3166-1 alpha-2 country code
+```
+
+## LegalRepresentative Object (SCA)
+
+For UserLegalSca, the LegalRepresentative object includes:
+
+```php
+$legalRep = new MangoPay\LegalRepresentative();
+$legalRep->FirstName = 'First name';
+$legalRep->LastName = 'Last name';
+$legalRep->Email = 'email@example.com';
+$legalRep->Birthday = mktime(0, 0, 0, 1, 1, 1980); // Unix timestamp
+$legalRep->Nationality = 'GB'; // ISO 3166-1 alpha-2
+$legalRep->CountryOfResidence = 'GB'; // ISO 3166-1 alpha-2
+$legalRep->PhoneNumber = '+441234567890';
+$legalRep->PhoneNumberCountry = 'GB';
+```
+
+## Legal Person Types
+
+### UserLegal
+- `BUSINESS` - A registered business
+- `ORGANIZATION` - A non-profit or other organization
+
+### UserLegalSca
+- `BUSINESS` - A registered business
+- `PARTNERSHIP` - A partnership
+- `ORGANIZATION` - A non-profit or other organization
+- `SOLETRADER` - A sole trader
+
+## Read-Only Properties
+
+The following properties are read-only and cannot be modified:
+- `Id`
+- `CreationDate`
+- `PersonType`
+- `TermsAndConditionsAcceptedDate`
+- `Statute`
+- `ProofOfRegistration`
+- `ShareholderDeclaration`
+- `LegalRepresentativeProofOfIdentity` (UserLegal only)
+- `KYCLevel`
+- `UserStatus`
+
+## Related Resources
+
+- [Users API](/api/users) - Main Users API documentation
+- [Natural Users](/api/user-natural) - Natural user entity documentation

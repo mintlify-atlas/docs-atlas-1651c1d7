@@ -1,0 +1,205 @@
+---
+title: Configuration
+description: Configuration settings for the Mangopay PHP SDK
+---
+
+## Overview
+
+The `Configuration` class holds all configuration settings for connecting to and interacting with the Mangopay API.
+
+## Properties
+
+### ClientId
+
+<ResponseField name="ClientId" type="string">
+  Your Mangopay client ID (also called API client username).
+</ResponseField>
+
+```php
+$config->ClientId = 'your-client-id';
+```
+
+### ClientPassword
+
+<ResponseField name="ClientPassword" type="string">
+  Your Mangopay API key (also called client password).
+</ResponseField>
+
+```php
+$config->ClientPassword = 'your-api-key';
+```
+
+### BaseUrl
+
+<ResponseField name="BaseUrl" type="string" default="https://api.sandbox.mangopay.com">
+  Base URL to the Mangopay API. Use `https://api.sandbox.mangopay.com` for sandbox environment and `https://api.mangopay.com` for production.
+</ResponseField>
+
+```php
+// Sandbox environment
+$config->BaseUrl = 'https://api.sandbox.mangopay.com';
+
+// Production environment
+$config->BaseUrl = 'https://api.mangopay.com';
+```
+
+### TemporaryFolder
+
+<ResponseField name="TemporaryFolder" type="string|null" default="null">
+  Path to folder for temporary files. The folder must have write permissions. Used for storing temporary data during API operations.
+</ResponseField>
+
+```php
+$config->TemporaryFolder = '/tmp/';
+```
+
+### CertificatesFilePath
+
+<ResponseField name="CertificatesFilePath" type="string" default="''">
+  Absolute path to file containing one or more certificates to verify the peer with. If empty, peer certificate verification is disabled.
+</ResponseField>
+
+```php
+$config->CertificatesFilePath = '/path/to/cacert.pem';
+```
+
+### DebugMode
+
+<ResponseField name="DebugMode" type="bool" default="false">
+  Enable debug mode to log all request and response data. For internal usage only.
+</ResponseField>
+
+```php
+$config->DebugMode = true;
+```
+
+### LogClass
+
+<ResponseField name="LogClass" type="string" default="MangoPay\\Libraries\\Logs">
+  The logging class to use when DebugMode is enabled.
+</ResponseField>
+
+```php
+$config->LogClass = 'MangoPay\\Libraries\\Logs';
+```
+
+### CurlConnectionTimeout
+
+<ResponseField name="CurlConnectionTimeout" type="int" default="30">
+  cURL connection timeout limit in seconds.
+</ResponseField>
+
+```php
+$config->CurlConnectionTimeout = 60;
+```
+
+### CurlResponseTimeout
+
+<ResponseField name="CurlResponseTimeout" type="int" default="30">
+  cURL response timeout limit in seconds.
+</ResponseField>
+
+```php
+$config->CurlResponseTimeout = 60;
+```
+
+### HostProxy
+
+<ResponseField name="HostProxy" type="string|null" default="null">
+  Proxy host to use for API requests.
+</ResponseField>
+
+```php
+$config->HostProxy = 'proxy.example.com:8080';
+```
+
+### UserPasswordProxy
+
+<ResponseField name="UserPasswordProxy" type="string|null" default="null">
+  Proxy authentication in the format `user:password`.
+</ResponseField>
+
+```php
+$config->UserPasswordProxy = 'username:password';
+```
+
+### UKHeaderFlag
+
+<ResponseField name="UKHeaderFlag" type="bool" default="false">
+  Set to true for UK traffic. **Deprecated:** Will be removed in future versions.
+</ResponseField>
+
+```php
+$config->UKHeaderFlag = true;
+```
+
+## Example Usage
+
+### Basic Configuration
+
+```php
+use MangoPay\MangoPayApi;
+
+$api = new MangoPayApi();
+
+// Set required credentials
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+$api->Config->TemporaryFolder = '/tmp/';
+```
+
+### Production Configuration
+
+```php
+use MangoPay\MangoPayApi;
+
+$api = new MangoPayApi();
+
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+$api->Config->BaseUrl = 'https://api.mangopay.com';
+$api->Config->TemporaryFolder = '/var/tmp/mangopay/';
+$api->Config->CertificatesFilePath = '/path/to/cacert.pem';
+```
+
+### Configuration with Proxy
+
+```php
+use MangoPay\MangoPayApi;
+
+$api = new MangoPayApi();
+
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+$api->Config->HostProxy = 'proxy.example.com:8080';
+$api->Config->UserPasswordProxy = 'proxyuser:proxypass';
+```
+
+### Configuration with Custom Timeouts
+
+```php
+use MangoPay\MangoPayApi;
+
+$api = new MangoPayApi();
+
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+$api->Config->CurlConnectionTimeout = 60;
+$api->Config->CurlResponseTimeout = 90;
+```
+
+### Using a Separate Configuration Object
+
+```php
+use MangoPay\MangoPayApi;
+use MangoPay\Libraries\Configuration;
+
+$config = new Configuration();
+$config->ClientId = 'your-client-id';
+$config->ClientPassword = 'your-api-key';
+$config->BaseUrl = 'https://api.mangopay.com';
+$config->TemporaryFolder = '/tmp/';
+
+$api = new MangoPayApi();
+$api->setConfig($config);
+```

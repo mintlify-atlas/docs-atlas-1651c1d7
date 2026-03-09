@@ -1,0 +1,563 @@
+---
+title: 'Webhooks'
+description: 'Receive real-time notifications for events in your Mangopay account'
+---
+
+## Overview
+
+Webhooks (also called Hooks in Mangopay) allow you to receive HTTP notifications when specific events occur in your Mangopay account. This enables you to:
+
+- Update your database when payments are processed
+- Notify users of transaction status changes
+- Trigger automated workflows
+- Monitor KYC document validation
+
+## Event Types
+
+Mangopay supports notifications for various event types:
+
+- **PAYIN_NORMAL_SUCCEEDED**: Pay-in succeeded
+- **PAYIN_NORMAL_FAILED**: Pay-in failed
+- **PAYOUT_NORMAL_SUCCEEDED**: Payout succeeded
+- **PAYOUT_NORMAL_FAILED**: Payout failed
+- **TRANSFER_NORMAL_SUCCEEDED**: Transfer succeeded
+- **TRANSFER_NORMAL_FAILED**: Transfer failed
+- **KYC_SUCCEEDED**: KYC document validated
+- **KYC_FAILED**: KYC document refused
+- **USER_KYC_REGULAR**: User upgraded to regular KYC level
+- **USER_KYC_LIGHT**: User downgraded to light KYC level
+
+## Creating a Webhook
+
+<Steps>
+  <Step title="Set Up Endpoint">
+    Create an endpoint on your server to receive webhook notifications:
+    
+    ```php
+    // webhook-handler.php
+    $payload = file_get_contents('php://input');
+    $data = json_decode($payload, true);
+    
+    // Log the webhook
+    error_log('Webhook received: ' . $payload);
+    
+    // Respond with 200 OK
+    http_response_code(200);
+    ```
+  </Step>
+
+  <Step title="Create Hook in Mangopay">
+    Register your webhook endpoint:
+    
+    ```php
+    $hook = new MangoPay\Hook();
+    $hook->EventType = 'PAYIN_NORMAL_SUCCEEDED';
+    $hook->Url = 'https://your-site.com/webhook-handler.php';
+    
+    try {
+        $createdHook = $api->Hooks->Create($hook);
+        echo "Hook created with ID: " . $createdHook->Id;
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        echo "Error: " . $e->GetMessage();
+    }
+    ```
+  </Step>
+
+  <Step title="Handle Notifications">
+    Process incoming webhook data:
+    
+    ```php
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    $eventType = $data['EventType'];
+    $resourceId = $data['RessourceId']; // Note: typo in API
+    $date = $data['Date'];
+    
+    switch ($eventType) {
+        case 'PAYIN_NORMAL_SUCCEEDED':
+            handlePayInSuccess($resourceId);
+            break;
+        case 'PAYIN_NORMAL_FAILED':
+            handlePayInFailure($resourceId);
+            break;
+        // Handle other events...
+    }
+    ```
+  </Step>
+</Steps>
+
+## Complete Webhook Handler
+
+Full example with error handling and verification:
+
+```php
+<?php
+// webhook-handler.php
+
+require_once 'vendor/autoload.php';
+
+// Initialize API
+$api = new MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-client-password';
+$api->Config->TemporaryFolder = '/tmp/';
+
+// Get webhook payload
+$payload = file_get_contents('php://input');
+$data = json_decode($payload, true);
+
+// Log the webhook
+error_log('Webhook received: ' . $payload);
+
+if (!$data) {
+    http_response_code(400);
+    exit('Invalid JSON');
+}
+
+// Extract event information
+$eventType = $data['EventType'];
+$resourceId = $data['RessourceId']; // Note: API has typo
+$date = $data['Date'];
+
+try {
+    switch ($eventType) {
+        case 'PAYIN_NORMAL_SUCCEEDED':
+            $payIn = $api->PayIns->Get($resourceId);
+            
+            // Update your database
+            updatePaymentStatus($payIn->Id, 'succeeded');
+            
+            // Notify user
+            notifyUser($payIn->AuthorId, 'Payment received successfully');
+            break;
+            
+        case 'PAYIN_NORMAL_FAILED':
+            $payIn = $api->PayIns->Get($resourceId);
+            
+            updatePaymentStatus($payIn->Id, 'failed');
+            notifyUser($payIn->AuthorId, 'Payment failed: ' . $payIn->ResultMessage);
+            break;
+            
+        case 'PAYOUT_NORMAL_SUCCEEDED':
+            $payout = $api->PayOuts->Get($resourceId);
+            
+            updatePayoutStatus($payout->Id, 'succeeded');
+            notifyUser($payout->AuthorId, 'Payout processed successfully');
+            break;
+            
+        case 'PAYOUT_NORMAL_FAILED':
+            $payout = $api->PayOuts->Get($resourceId);
+            
+            updatePayoutStatus($payout->Id, 'failed');
+            notifyUser($payout->AuthorId, 'Payout failed: ' . $payout->ResultMessage);
+            break;
+            
+        case 'KYC_SUCCEEDED':
+            $kycDoc = $api->KycDocuments->Get($resourceId);
+            
+            updateKycStatus($kycDoc->UserId, 'validated');
+            notifyUser($kycDoc->UserId, 'Your document has been validated');
+            break;
+            
+        case 'KYC_FAILED':
+            $kycDoc = $api->KycDocuments->Get($resourceId);
+            
+            updateKycStatus($kycDoc->UserId, 'refused');
+            notifyUser($kycDoc->UserId, 'Document rejected: ' . $kycDoc->RefusedReasonMessage);
+            break;
+            
+        default:
+            error_log('Unhandled event type: ' . $eventType);
+    }
+    
+    // Respond with 200 OK
+    http_response_code(200);
+    echo 'OK';
+    
+} catch (Exception $e) {
+    error_log('Webhook error: ' . $e->getMessage());
+    http_response_code(500);
+    echo 'Error processing webhook';
+}
+
+// Helper functions
+function updatePaymentStatus($paymentId, $status) {
+    // Update your database
+    // Example: DB::update('payments', ['id' => $paymentId, 'status' => $status]);
+}
+
+function updatePayoutStatus($payoutId, $status) {
+    // Update your database
+}
+
+function updateKycStatus($userId, $status) {
+    // Update your database
+}
+
+function notifyUser($userId, $message) {
+    // Send notification to user (email, push, etc.)
+}
+```
+
+## Managing Webhooks
+
+### Create Multiple Webhooks
+
+Register webhooks for different events:
+
+```php
+$events = [
+    'PAYIN_NORMAL_SUCCEEDED',
+    'PAYIN_NORMAL_FAILED',
+    'PAYOUT_NORMAL_SUCCEEDED',
+    'PAYOUT_NORMAL_FAILED',
+    'KYC_SUCCEEDED',
+    'KYC_FAILED'
+];
+
+$webhookUrl = 'https://your-site.com/webhook-handler.php';
+
+foreach ($events as $eventType) {
+    $hook = new MangoPay\Hook();
+    $hook->EventType = $eventType;
+    $hook->Url = $webhookUrl;
+    
+    try {
+        $createdHook = $api->Hooks->Create($hook);
+        echo "Created hook for {$eventType}: {$createdHook->Id}\n";
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        echo "Error creating hook for {$eventType}: " . $e->GetMessage() . "\n";
+    }
+}
+```
+
+### Get All Webhooks
+
+List all registered webhooks:
+
+```php
+$pagination = new MangoPay\Pagination(1, 50);
+
+try {
+    $hooks = $api->Hooks->GetAll($pagination);
+    
+    foreach ($hooks as $hook) {
+        echo "Hook ID: " . $hook->Id . "\n";
+        echo "Event: " . $hook->EventType . "\n";
+        echo "URL: " . $hook->Url . "\n";
+        echo "Status: " . $hook->Status . "\n";
+        echo "Validity: " . $hook->Validity . "\n\n";
+    }
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+### Get a Specific Webhook
+
+```php
+try {
+    $hook = $api->Hooks->Get($hookId);
+    
+    echo "Event type: " . $hook->EventType . "\n";
+    echo "URL: " . $hook->Url . "\n";
+    echo "Status: " . $hook->Status . "\n";
+    echo "Validity: " . $hook->Validity;
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+### Update a Webhook
+
+You can enable/disable webhooks or change the URL:
+
+```php
+try {
+    $hook = $api->Hooks->Get($hookId);
+    
+    // Change URL
+    $hook->Url = 'https://new-domain.com/webhook-handler.php';
+    
+    // Disable webhook
+    $hook->Status = 'DISABLED';
+    
+    $updatedHook = $api->Hooks->Update($hook);
+    echo "Hook updated successfully";
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Webhook Security
+
+Verify webhooks to ensure they're from Mangopay:
+
+```php
+function verifyWebhook($api, $resourceId, $eventType) {
+    try {
+        // Fetch the resource from Mangopay API
+        switch ($eventType) {
+            case 'PAYIN_NORMAL_SUCCEEDED':
+            case 'PAYIN_NORMAL_FAILED':
+                $resource = $api->PayIns->Get($resourceId);
+                break;
+                
+            case 'PAYOUT_NORMAL_SUCCEEDED':
+            case 'PAYOUT_NORMAL_FAILED':
+                $resource = $api->PayOuts->Get($resourceId);
+                break;
+                
+            case 'KYC_SUCCEEDED':
+            case 'KYC_FAILED':
+                $resource = $api->KycDocuments->Get($resourceId);
+                break;
+                
+            default:
+                return false;
+        }
+        
+        // If we can fetch the resource, webhook is valid
+        return $resource !== null;
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        return false;
+    }
+}
+
+// Usage in webhook handler
+$data = json_decode(file_get_contents('php://input'), true);
+
+if (!verifyWebhook($api, $data['RessourceId'], $data['EventType'])) {
+    http_response_code(401);
+    exit('Unauthorized');
+}
+
+// Process webhook...
+```
+
+## Webhook Reliability
+
+Implement retry logic and idempotency:
+
+```php
+function processWebhookIdempotent($webhookData) {
+    $eventId = $webhookData['EventType'] . '_' . $webhookData['RessourceId'];
+    
+    // Check if already processed
+    if (isWebhookProcessed($eventId)) {
+        error_log('Webhook already processed: ' . $eventId);
+        return true;
+    }
+    
+    try {
+        // Process the webhook
+        processWebhookEvent($webhookData);
+        
+        // Mark as processed
+        markWebhookProcessed($eventId);
+        
+        return true;
+    } catch (Exception $e) {
+        error_log('Webhook processing failed: ' . $e->getMessage());
+        return false;
+    }
+}
+
+function isWebhookProcessed($eventId) {
+    // Check your database
+    // Example: return DB::exists('processed_webhooks', ['event_id' => $eventId]);
+    return false;
+}
+
+function markWebhookProcessed($eventId) {
+    // Store in your database
+    // Example: DB::insert('processed_webhooks', ['event_id' => $eventId, 'processed_at' => time()]);
+}
+
+function processWebhookEvent($data) {
+    // Your processing logic
+}
+
+// Usage
+$data = json_decode(file_get_contents('php://input'), true);
+
+if (processWebhookIdempotent($data)) {
+    http_response_code(200);
+} else {
+    http_response_code(500);
+}
+```
+
+## Testing Webhooks
+
+Test your webhook handler locally:
+
+```php
+// test-webhook.php
+$testPayload = [
+    'EventType' => 'PAYIN_NORMAL_SUCCEEDED',
+    'RessourceId' => 'payin_123456',
+    'Date' => time()
+];
+
+$ch = curl_init('http://localhost/webhook-handler.php');
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($testPayload));
+curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+$response = curl_exec($ch);
+$statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+curl_close($ch);
+
+echo "Response: {$response}\n";
+echo "Status: {$statusCode}";
+```
+
+## Common Event Handlers
+
+### Payment Events
+
+```php
+function handlePaymentWebhook($api, $payInId, $status) {
+    $payIn = $api->PayIns->Get($payInId);
+    
+    if ($status === 'succeeded') {
+        // Credit user account
+        creditUserAccount($payIn->AuthorId, $payIn->DebitedFunds->Amount);
+        
+        // Send confirmation email
+        sendPaymentConfirmation($payIn->AuthorId, $payIn);
+        
+        // Update order status
+        updateOrderStatus($payIn->Tag, 'paid');
+    } else {
+        // Handle failed payment
+        notifyPaymentFailure($payIn->AuthorId, $payIn->ResultMessage);
+        updateOrderStatus($payIn->Tag, 'failed');
+    }
+}
+```
+
+### KYC Events
+
+```php
+function handleKycWebhook($api, $kycDocId, $status) {
+    $kycDoc = $api->KycDocuments->Get($kycDocId);
+    
+    if ($status === 'validated') {
+        // Update user verification status
+        updateUserVerification($kycDoc->UserId, true);
+        
+        // Enable higher transaction limits
+        enableHigherLimits($kycDoc->UserId);
+        
+        // Send confirmation
+        sendVerificationConfirmation($kycDoc->UserId);
+    } else {
+        // Document refused
+        sendVerificationRejection(
+            $kycDoc->UserId,
+            $kycDoc->RefusedReasonMessage,
+            $kycDoc->Flags
+        );
+    }
+}
+```
+
+## Webhook Status Monitoring
+
+Monitor webhook health:
+
+```php
+function checkWebhookHealth($api) {
+    try {
+        $hooks = $api->Hooks->GetAll();
+        $health = [];
+        
+        foreach ($hooks as $hook) {
+            $health[] = [
+                'id' => $hook->Id,
+                'event' => $hook->EventType,
+                'status' => $hook->Status,
+                'validity' => $hook->Validity
+            ];
+            
+            // Alert if webhook is invalid
+            if ($hook->Validity === 'INVALID') {
+                error_log("Webhook {$hook->Id} is invalid!");
+                // Send alert to admin
+            }
+        }
+        
+        return $health;
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        return null;
+    }
+}
+
+// Run periodically
+$health = checkWebhookHealth($api);
+foreach ($health as $webhook) {
+    echo "{$webhook['event']}: {$webhook['validity']}\n";
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Respond Quickly" icon="bolt">
+    Return 200 OK immediately, then process asynchronously.
+  </Card>
+  
+  <Card title="Use HTTPS" icon="lock">
+    Always use HTTPS URLs for webhook endpoints.
+  </Card>
+  
+  <Card title="Idempotent Processing" icon="repeat">
+    Handle duplicate webhooks gracefully.
+  </Card>
+  
+  <Card title="Verify Webhooks" icon="shield-check">
+    Verify webhook authenticity by fetching the resource.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+Common webhook issues:
+
+```php
+// Check webhook validity
+$hook = $api->Hooks->Get($hookId);
+
+if ($hook->Validity === 'INVALID') {
+    echo "Webhook is invalid. Reasons:\n";
+    echo "- URL might be unreachable\n";
+    echo "- Not returning 200 OK\n";
+    echo "- Taking too long to respond\n";
+    
+    // Fix the URL and update
+    $hook->Url = 'https://working-url.com/webhook';
+    $api->Hooks->Update($hook);
+}
+
+// Re-enable disabled webhook
+if ($hook->Status === 'DISABLED') {
+    $hook->Status = 'ENABLED';
+    $api->Hooks->Update($hook);
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Processing Pay-ins" icon="arrow-down" href="/guides/processing-payins">
+    Learn about payment processing
+  </Card>
+  
+  <Card title="Rate Limits" icon="gauge" href="/guides/rate-limits">
+    Understand API rate limiting
+  </Card>
+</CardGroup>

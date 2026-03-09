@@ -1,0 +1,879 @@
+---
+title: Code Examples
+description: Real-world examples and usage patterns for the Mangopay PHP SDK
+---
+
+This page provides comprehensive examples for common use cases with the Mangopay PHP SDK, based on real implementation patterns from the SDK test suite.
+
+## Getting Started
+
+### Basic Configuration
+
+```php
+use MangoPay\MangoPayApi;
+
+$api = new MangoPayApi();
+
+// Sandbox environment
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-client-password';
+$api->Config->TemporaryFolder = '/tmp/mangopay/';
+$api->Config->BaseUrl = 'https://api.sandbox.mangopay.com';
+
+// Production environment (uncomment when ready)
+// $api->Config->BaseUrl = 'https://api.mangopay.com';
+```
+
+### Custom Timeout Configuration
+
+```php
+// Customize timeouts (optional)
+$api->Config->CurlResponseTimeout = 20; // Response timeout in seconds (default: 30)
+$api->Config->CurlConnectionTimeout = 60; // Connection timeout in seconds (default: 80)
+```
+
+### SSL Certificate Verification
+
+```php
+// Specify custom CA certificate bundle (optional)
+$api->Config->CertificatesFilePath = '/path/to/cacert.pem';
+```
+
+## User Management
+
+### Creating a Natural User (Payer)
+
+```php
+use MangoPay\UserNatural;
+
+$user = new UserNatural();
+$user->FirstName = "John";
+$user->LastName = "Doe";
+$user->Email = "john.doe@example.com";
+$user->Birthday = mktime(0, 0, 0, 12, 21, 1985);
+$user->Nationality = "GB";
+$user->CountryOfResidence = "GB";
+$user->UserCategory = "PAYER";
+
+try {
+    $createdUser = $api->Users->Create($user);
+    echo "User created with ID: " . $createdUser->Id;
+} catch (\MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+    print_r($e->GetErrorDetails());
+} catch (\MangoPay\Libraries\Exception $e) {
+    echo "Exception: " . $e->GetMessage();
+}
+```
+
+### Creating a Legal User (Owner)
+
+```php
+use MangoPay\UserLegal;
+use MangoPay\Address;
+use MangoPay\LegalPersonType;
+
+$user = new UserLegal();
+$user->Name = "Best Marketplace Ltd";
+$user->Email = "legal@example.com";
+$user->LegalPersonType = LegalPersonType::Business;
+$user->UserCategory = "OWNER";
+
+// Legal representative details
+$user->LegalRepresentativeFirstName = "John";
+$user->LegalRepresentativeLastName = "Doe";
+$user->LegalRepresentativeBirthday = mktime(0, 0, 0, 12, 21, 1975);
+$user->LegalRepresentativeNationality = "GB";
+$user->LegalRepresentativeCountryOfResidence = "GB";
+$user->LegalRepresentativeEmail = "john.doe@example.com";
+
+// Legal representative address
+$user->LegalRepresentativeAddress = new Address();
+$user->LegalRepresentativeAddress->AddressLine1 = "1 London Road";
+$user->LegalRepresentativeAddress->City = "London";
+$user->LegalRepresentativeAddress->PostalCode = "SW1A 1AA";
+$user->LegalRepresentativeAddress->Country = "GB";
+
+// Company headquarters
+$user->HeadquartersAddress = new Address();
+$user->HeadquartersAddress->AddressLine1 = "1 London Road";
+$user->HeadquartersAddress->City = "London";
+$user->HeadquartersAddress->PostalCode = "SW1A 1AA";
+$user->HeadquartersAddress->Country = "GB";
+
+$user->CompanyNumber = "12345678";
+$user->TermsAndConditionsAccepted = true;
+
+$createdUser = $api->Users->Create($user);
+```
+
+### Creating a User with SCA (Strong Customer Authentication)
+
+```php
+use MangoPay\UserNaturalSca;
+use MangoPay\Address;
+use MangoPay\UserCategory;
+
+$user = new UserNaturalSca();
+$user->FirstName = "John";
+$user->LastName = "Doe";
+$user->Email = "john.doe@example.com";
+$user->Birthday = mktime(0, 0, 0, 12, 21, 1985);
+$user->Nationality = "GB";
+$user->CountryOfResidence = "GB";
+$user->UserCategory = UserCategory::Owner;
+$user->TermsAndConditionsAccepted = true;
+
+$user->Address = new Address();
+$user->Address->AddressLine1 = "1 London Road";
+$user->Address->City = "London";
+$user->Address->PostalCode = "SW1A 1AA";
+$user->Address->Country = "GB";
+
+$createdUser = $api->Users->CreateSca($user);
+
+// Check if SCA redirect is needed
+if ($createdUser->PendingUserAction !== null) {
+    $redirectUrl = $createdUser->PendingUserAction->RedirectUrl;
+    // Redirect user to complete SCA authentication
+}
+```
+
+### Retrieving User Information
+
+```php
+// Get any user type
+$user = $api->Users->Get($userId);
+
+// Get specifically a natural user
+$naturalUser = $api->Users->GetNatural($userId);
+
+// Get specifically a legal user
+$legalUser = $api->Users->GetLegal($userId);
+
+// Get user with SCA context
+$userSca = $api->Users->GetSca($userId);
+```
+
+### Listing All Users with Pagination
+
+```php
+use MangoPay\Pagination;
+
+$pagination = new Pagination(1, 20); // Page 1, 20 items per page
+$users = $api->Users->GetAll($pagination);
+
+foreach ($users as $user) {
+    echo "User: " . $user->Id . " - " . $user->Email . "\n";
+}
+```
+
+## Wallets
+
+### Creating a Wallet
+
+```php
+use MangoPay\Wallet;
+
+$wallet = new Wallet();
+$wallet->Owners = [$userId]; // Array of user IDs
+$wallet->Description = "User's main wallet";
+$wallet->Currency = "EUR";
+
+$createdWallet = $api->Wallets->Create($wallet);
+echo "Wallet created with ID: " . $createdWallet->Id;
+```
+
+### Retrieving Wallet Information
+
+```php
+$wallet = $api->Wallets->Get($walletId);
+
+echo "Balance: " . $wallet->Balance->Amount . " " . $wallet->Balance->Currency;
+echo "\nOwners: " . implode(", ", $wallet->Owners);
+```
+
+### Listing Wallet Transactions
+
+```php
+use MangoPay\Pagination;
+use MangoPay\FilterTransactions;
+
+$pagination = new Pagination(1, 10);
+$filter = new FilterTransactions();
+$filter->Type = 'PAYIN'; // PAYIN, PAYOUT, or TRANSFER
+
+$transactions = $api->Wallets->GetTransactions($walletId, $pagination, $filter);
+
+foreach ($transactions as $transaction) {
+    echo "Transaction: " . $transaction->Id . " - " . $transaction->Status . "\n";
+}
+```
+
+## Bank Accounts
+
+### Creating an IBAN Bank Account
+
+```php
+use MangoPay\BankAccount;
+use MangoPay\BankAccountDetailsIBAN;
+use MangoPay\Address;
+
+$bankAccount = new BankAccount();
+$bankAccount->Type = "IBAN";
+$bankAccount->OwnerName = "John Doe";
+
+$bankAccount->OwnerAddress = new Address();
+$bankAccount->OwnerAddress->AddressLine1 = "1 London Road";
+$bankAccount->OwnerAddress->City = "London";
+$bankAccount->OwnerAddress->PostalCode = "SW1A 1AA";
+$bankAccount->OwnerAddress->Country = "GB";
+
+$bankAccount->Details = new BankAccountDetailsIBAN();
+$bankAccount->Details->IBAN = "GB33BUKB20201555555555";
+$bankAccount->Details->BIC = "BUKBGB22";
+
+$createdAccount = $api->Users->CreateBankAccount($userId, $bankAccount);
+```
+
+### Listing User's Bank Accounts
+
+```php
+use MangoPay\Pagination;
+
+$pagination = new Pagination(1, 10);
+$bankAccounts = $api->Users->GetBankAccounts($userId, $pagination);
+
+foreach ($bankAccounts as $account) {
+    echo "Bank Account: " . $account->Id . " - " . $account->Type . "\n";
+}
+```
+
+## Card Registration and PayIns
+
+### Card Registration Flow
+
+```php
+use MangoPay\CardRegistration;
+
+// Step 1: Create card registration
+$cardRegistration = new CardRegistration();
+$cardRegistration->UserId = $userId;
+$cardRegistration->Currency = "EUR";
+$cardRegistration->CardType = "CB_VISA_MASTERCARD";
+
+$createdCardRegistration = $api->CardRegistrations->Create($cardRegistration);
+
+// Step 2: Get card registration data for client-side tokenization
+$cardRegistrationUrl = $createdCardRegistration->CardRegistrationURL;
+$preregistrationData = $createdCardRegistration->PreregistrationData;
+$accessKey = $createdCardRegistration->AccessKey;
+
+// Step 3: Client-side - send card details to CardRegistrationURL with:
+// - data: $preregistrationData
+// - accessKeyRef: $accessKey  
+// - cardNumber: "4970100000000154"
+// - cardExpirationDate: "1230"
+// - cardCvx: "123"
+// You'll receive RegistrationData in response
+
+// Step 4: Update card registration with RegistrationData
+$cardRegistration->RegistrationData = $registrationDataFromClient;
+$updatedCardRegistration = $api->CardRegistrations->Update($cardRegistration);
+
+$cardId = $updatedCardRegistration->CardId;
+```
+
+### Creating a Direct Card PayIn
+
+```php
+use MangoPay\PayIn;
+use MangoPay\PayInPaymentDetailsCard;
+use MangoPay\PayInExecutionDetailsDirect;
+use MangoPay\Money;
+use MangoPay\Address;
+use MangoPay\Billing;
+use MangoPay\BrowserInfo;
+
+$payIn = new PayIn();
+$payIn->AuthorId = $userId;
+$payIn->CreditedWalletId = $walletId;
+
+$payIn->DebitedFunds = new Money();
+$payIn->DebitedFunds->Currency = "EUR";
+$payIn->DebitedFunds->Amount = 1000; // €10.00
+
+$payIn->Fees = new Money();
+$payIn->Fees->Currency = "EUR";
+$payIn->Fees->Amount = 100; // €1.00 fee
+
+// Payment details
+$payIn->PaymentDetails = new PayInPaymentDetailsCard();
+$payIn->PaymentDetails->CardType = "CB_VISA_MASTERCARD";
+$payIn->PaymentDetails->CardId = $cardId;
+
+// Execution details
+$payIn->ExecutionDetails = new PayInExecutionDetailsDirect();
+$payIn->ExecutionDetails->SecureModeReturnURL = "https://example.com/return";
+$payIn->ExecutionDetails->SecureMode = "DEFAULT";
+$payIn->ExecutionDetails->Culture = "EN";
+
+// Billing information (required for 3DS2)
+$payIn->ExecutionDetails->Billing = new Billing();
+$payIn->ExecutionDetails->Billing->Address = new Address();
+$payIn->ExecutionDetails->Billing->Address->AddressLine1 = "1 London Road";
+$payIn->ExecutionDetails->Billing->Address->City = "London";
+$payIn->ExecutionDetails->Billing->Address->PostalCode = "SW1A 1AA";
+$payIn->ExecutionDetails->Billing->Address->Country = "GB";
+$payIn->ExecutionDetails->Billing->FirstName = "John";
+$payIn->ExecutionDetails->Billing->LastName = "Doe";
+
+// Browser info (required for 3DS2)
+$payIn->ExecutionDetails->IpAddress = "2001:0620:0000:0000:0211:24FF:FE80:C12C";
+$payIn->ExecutionDetails->BrowserInfo = new BrowserInfo();
+$payIn->ExecutionDetails->BrowserInfo->AcceptHeader = "text/html";
+$payIn->ExecutionDetails->BrowserInfo->JavaEnabled = false;
+$payIn->ExecutionDetails->BrowserInfo->Language = "en-GB";
+$payIn->ExecutionDetails->BrowserInfo->ColorDepth = 24;
+$payIn->ExecutionDetails->BrowserInfo->ScreenHeight = 1080;
+$payIn->ExecutionDetails->BrowserInfo->ScreenWidth = 1920;
+$payIn->ExecutionDetails->BrowserInfo->TimeZoneOffset = 0;
+$payIn->ExecutionDetails->BrowserInfo->UserAgent = "Mozilla/5.0";
+$payIn->ExecutionDetails->BrowserInfo->JavascriptEnabled = true;
+
+$createdPayIn = $api->PayIns->CreateCardDirect($payIn);
+
+if ($createdPayIn->Status === "SUCCEEDED") {
+    echo "Payment successful!";
+} elseif ($createdPayIn->Status === "CREATED") {
+    // Redirect user for 3DS authentication
+    $redirectUrl = $createdPayIn->ExecutionDetails->SecureModeRedirectURL;
+}
+```
+
+### Creating a Web Card PayIn
+
+```php
+use MangoPay\PayIn;
+use MangoPay\PayInPaymentDetailsCard;
+use MangoPay\PayInExecutionDetailsWeb;
+use MangoPay\Money;
+
+$payIn = new PayIn();
+$payIn->AuthorId = $userId;
+$payIn->CreditedWalletId = $walletId;
+$payIn->PaymentType = "CARD";
+$payIn->ExecutionType = "WEB";
+
+$payIn->DebitedFunds = new Money();
+$payIn->DebitedFunds->Currency = "EUR";
+$payIn->DebitedFunds->Amount = 5000;
+
+$payIn->Fees = new Money();
+$payIn->Fees->Currency = "EUR";
+$payIn->Fees->Amount = 0;
+
+$payIn->PaymentDetails = new PayInPaymentDetailsCard();
+$payIn->PaymentDetails->CardType = "CB_VISA_MASTERCARD";
+
+$payIn->ExecutionDetails = new PayInExecutionDetailsWeb();
+$payIn->ExecutionDetails->ReturnURL = "https://example.com/return";
+$payIn->ExecutionDetails->Culture = "EN";
+
+$createdPayIn = $api->PayIns->CreateCardWeb($payIn);
+
+// Redirect user to payment page
+$redirectUrl = $createdPayIn->ExecutionDetails->RedirectURL;
+```
+
+### Creating a Bank Wire PayIn
+
+```php
+use MangoPay\PayIn;
+use MangoPay\PayInPaymentDetailsBankWire;
+use MangoPay\PayInExecutionDetailsDirect;
+use MangoPay\Money;
+
+$payIn = new PayIn();
+$payIn->AuthorId = $userId;
+$payIn->CreditedWalletId = $walletId;
+
+$payIn->DeclaredDebitedFunds = new Money();
+$payIn->DeclaredDebitedFunds->Currency = "EUR";
+$payIn->DeclaredDebitedFunds->Amount = 10000;
+
+$payIn->DeclaredFees = new Money();
+$payIn->DeclaredFees->Currency = "EUR";
+$payIn->DeclaredFees->Amount = 0;
+
+$payIn->PaymentDetails = new PayInPaymentDetailsBankWire();
+$payIn->PaymentDetails->DeclaredDebitedFunds = $payIn->DeclaredDebitedFunds;
+$payIn->PaymentDetails->DeclaredFees = $payIn->DeclaredFees;
+
+$payIn->ExecutionDetails = new PayInExecutionDetailsDirect();
+
+$createdPayIn = $api->PayIns->CreateBankWire($payIn);
+
+// Provide these details to the user for bank transfer
+echo "Wire Reference: " . $createdPayIn->PaymentDetails->WireReference . "\n";
+echo "Bank Account Owner: " . $createdPayIn->PaymentDetails->BankAccount->OwnerName . "\n";
+echo "IBAN: " . $createdPayIn->PaymentDetails->BankAccount->IBAN . "\n";
+echo "BIC: " . $createdPayIn->PaymentDetails->BankAccount->BIC . "\n";
+```
+
+## Transfers
+
+### Creating a Transfer Between Wallets
+
+```php
+use MangoPay\Transfer;
+use MangoPay\Money;
+
+$transfer = new Transfer();
+$transfer->AuthorId = $userId;
+$transfer->DebitedWalletId = $sourceWalletId;
+$transfer->CreditedWalletId = $destinationWalletId;
+
+$transfer->DebitedFunds = new Money();
+$transfer->DebitedFunds->Currency = "EUR";
+$transfer->DebitedFunds->Amount = 1000;
+
+$transfer->Fees = new Money();
+$transfer->Fees->Currency = "EUR";
+$transfer->Fees->Amount = 50; // Platform fee
+
+$transfer->Tag = "Custom transfer tag";
+
+$createdTransfer = $api->Transfers->Create($transfer);
+
+if ($createdTransfer->Status === "SUCCEEDED") {
+    echo "Transfer successful!";
+}
+```
+
+### Transfer with SCA Context
+
+```php
+use MangoPay\Transfer;
+use MangoPay\Money;
+
+$transfer = new Transfer();
+$transfer->AuthorId = $userId;
+$transfer->DebitedWalletId = $sourceWalletId;
+$transfer->CreditedWalletId = $destinationWalletId;
+
+$transfer->DebitedFunds = new Money();
+$transfer->DebitedFunds->Currency = "EUR";
+$transfer->DebitedFunds->Amount = 1000;
+
+$transfer->Fees = new Money();
+$transfer->Fees->Currency = "EUR";
+$transfer->Fees->Amount = 0;
+
+// SCA context
+$transfer->ScaContext = "USER_PRESENT";
+
+try {
+    $createdTransfer = $api->Transfers->Create($transfer);
+    
+    if ($createdTransfer->PendingUserAction !== null) {
+        // Redirect user for SCA authentication
+        $redirectUrl = $createdTransfer->PendingUserAction->RedirectUrl;
+    }
+} catch (\MangoPay\Libraries\ResponseException $e) {
+    if ($e->getCode() === 401) {
+        // Handle SCA requirement
+        $redirectUrl = $e->GetErrorDetails()->Data['RedirectUrl'];
+    }
+}
+```
+
+## Payouts
+
+### Creating a Bank Wire Payout
+
+```php
+use MangoPay\PayOut;
+use MangoPay\PayOutPaymentDetailsBankWire;
+use MangoPay\Money;
+
+$payOut = new PayOut();
+$payOut->AuthorId = $userId;
+$payOut->DebitedWalletId = $walletId;
+$payOut->PaymentType = "BANK_WIRE";
+
+$payOut->DebitedFunds = new Money();
+$payOut->DebitedFunds->Currency = "EUR";
+$payOut->DebitedFunds->Amount = 5000;
+
+$payOut->Fees = new Money();
+$payOut->Fees->Currency = "EUR";
+$payOut->Fees->Amount = 0;
+
+$payOut->PaymentDetails = new PayOutPaymentDetailsBankWire();
+$payOut->PaymentDetails->BankAccountId = $bankAccountId;
+$payOut->PaymentDetails->BankWireRef = "Custom reference";
+
+$createdPayOut = $api->PayOuts->CreateBankWire($payOut);
+```
+
+### Instant Payout
+
+```php
+use MangoPay\PayOut;
+use MangoPay\PayOutPaymentDetailsBankWire;
+use MangoPay\Money;
+
+$payOut = new PayOut();
+$payOut->AuthorId = $userId;
+$payOut->DebitedWalletId = $walletId;
+
+$payOut->DebitedFunds = new Money();
+$payOut->DebitedFunds->Currency = "EUR";
+$payOut->DebitedFunds->Amount = 5000;
+
+$payOut->Fees = new Money();
+$payOut->Fees->Currency = "EUR";
+$payOut->Fees->Amount = 0;
+
+$payOut->PaymentDetails = new PayOutPaymentDetailsBankWire();
+$payOut->PaymentDetails->BankAccountId = $bankAccountId;
+$payOut->PaymentDetails->PayoutModeRequested = "INSTANT_PAYMENT";
+
+$createdPayOut = $api->PayOuts->CreateBankWire($payOut);
+
+if ($createdPayOut->PayoutModeApplied === "INSTANT_PAYMENT") {
+    echo "Instant payout successful!";
+} else {
+    echo "Fallback to standard payout";
+}
+```
+
+### Checking Instant Payout Eligibility
+
+```php
+use MangoPay\Money;
+use MangoPay\PayoutModeRequested;
+
+$params = [
+    'AuthorId' => $userId,
+    'DebitedFunds' => new Money(),
+    'Fees' => new Money(),
+    'BankAccountId' => $bankAccountId,
+    'DebitedWalletId' => $walletId,
+    'PayoutModeRequested' => PayoutModeRequested::InstantPayment
+];
+
+$params['DebitedFunds']->Currency = 'EUR';
+$params['DebitedFunds']->Amount = 5000;
+$params['Fees']->Currency = 'EUR';
+$params['Fees']->Amount = 0;
+
+$eligibility = $api->PayOuts->CheckInstantPayoutEligibility($params);
+
+if ($eligibility->InstantPayout->IsReachable) {
+    echo "Bank is eligible for instant payout";
+} else {
+    echo "Reason: " . $eligibility->InstantPayout->UnreachableReason;
+}
+```
+
+## Refunds
+
+### Refunding a PayIn
+
+```php
+use MangoPay\Refund;
+use MangoPay\RefundReasonType;
+
+$refund = new Refund();
+$refund->AuthorId = $userId;
+
+// Full refund (omit DebitedFunds and Fees)
+$createdRefund = $api->PayIns->CreateRefund($payInId, $refund);
+```
+
+### Partial Refund
+
+```php
+use MangoPay\Refund;
+use MangoPay\Money;
+
+$refund = new Refund();
+$refund->AuthorId = $userId;
+
+// Partial refund
+$refund->DebitedFunds = new Money();
+$refund->DebitedFunds->Currency = 'EUR';
+$refund->DebitedFunds->Amount = 500; // Refund €5.00 of a larger payment
+
+$refund->Fees = new Money();
+$refund->Fees->Currency = 'EUR';
+$refund->Fees->Amount = -50; // Refund €0.50 of fees (negative value)
+
+$createdRefund = $api->PayIns->CreateRefund($payInId, $refund);
+```
+
+## Recurring Payments
+
+### Creating a Recurring Registration
+
+```php
+use MangoPay\RecurringPayInRegistration;
+use MangoPay\Money;
+use MangoPay\Address;
+use MangoPay\Billing;
+
+$registration = new RecurringPayInRegistration();
+$registration->AuthorId = $userId;
+$registration->CardId = $cardId;
+$registration->CreditedWalletId = $walletId;
+$registration->FirstTransactionDebitedFunds = new Money();
+$registration->FirstTransactionDebitedFunds->Currency = 'EUR';
+$registration->FirstTransactionDebitedFunds->Amount = 1000;
+
+$registration->FirstTransactionFees = new Money();
+$registration->FirstTransactionFees->Currency = 'EUR';
+$registration->FirstTransactionFees->Amount = 100;
+
+$registration->Billing = new Billing();
+$registration->Billing->FirstName = "John";
+$registration->Billing->LastName = "Doe";
+$registration->Billing->Address = new Address();
+$registration->Billing->Address->AddressLine1 = "1 London Road";
+$registration->Billing->Address->City = "London";
+$registration->Billing->Address->PostalCode = "SW1A 1AA";
+$registration->Billing->Address->Country = "GB";
+
+$registration->Shipping = $registration->Billing; // Can be different
+$registration->EndDate = strtotime('+1 year');
+$registration->Migration = true;
+$registration->FreeCycles = 1; // First payment free
+
+$createdRegistration = $api->PayIns->CreateRecurringRegistration($registration);
+```
+
+### Creating a Recurring PayIn (CIT)
+
+```php
+use MangoPay\RecurringPayInCIT;
+use MangoPay\Money;
+use MangoPay\BrowserInfo;
+
+$recurringPayIn = new RecurringPayInCIT();
+$recurringPayIn->RecurringPayinRegistrationId = $registrationId;
+$recurringPayIn->SecureModeReturnURL = "https://example.com/return";
+$recurringPayIn->IpAddress = "2001:0620:0000:0000:0211:24FF:FE80:C12C";
+$recurringPayIn->BrowserInfo = new BrowserInfo();
+$recurringPayIn->BrowserInfo->AcceptHeader = "text/html";
+$recurringPayIn->BrowserInfo->JavaEnabled = false;
+$recurringPayIn->BrowserInfo->Language = "en-GB";
+$recurringPayIn->BrowserInfo->ColorDepth = 24;
+$recurringPayIn->BrowserInfo->ScreenHeight = 1080;
+$recurringPayIn->BrowserInfo->ScreenWidth = 1920;
+$recurringPayIn->BrowserInfo->TimeZoneOffset = 0;
+$recurringPayIn->BrowserInfo->UserAgent = "Mozilla/5.0";
+$recurringPayIn->BrowserInfo->JavascriptEnabled = true;
+
+// Optional: specific amounts for this payment
+$recurringPayIn->DebitedFunds = new Money();
+$recurringPayIn->DebitedFunds->Currency = 'EUR';
+$recurringPayIn->DebitedFunds->Amount = 1000;
+
+$recurringPayIn->Fees = new Money();
+$recurringPayIn->Fees->Currency = 'EUR';
+$recurringPayIn->Fees->Amount = 100;
+
+$createdPayIn = $api->PayIns->CreateRecurringPayInRegistrationCIT($recurringPayIn);
+```
+
+## FX Conversions
+
+### Creating an Instant Conversion
+
+```php
+use MangoPay\CreateInstantConversion;
+use MangoPay\Money;
+
+$conversion = new CreateInstantConversion();
+$conversion->AuthorId = $userId;
+$conversion->DebitedWalletId = $sourceWalletId;
+$conversion->CreditedWalletId = $destinationWalletId;
+
+$conversion->DebitedFunds = new Money();
+$conversion->DebitedFunds->Currency = 'GBP';
+$conversion->DebitedFunds->Amount = 10000; // £100.00
+
+$conversion->CreditedFunds = new Money();
+$conversion->CreditedFunds->Currency = 'EUR';
+$conversion->CreditedFunds->Amount = 11500; // €115.00 (approximate)
+
+$conversion->Tag = 'GBP to EUR conversion';
+
+$createdConversion = $api->Conversions->CreateInstantConversion($conversion);
+
+echo "Conversion rate: " . $createdConversion->ConversionRateResponse->ClientRate;
+echo "Status: " . $createdConversion->Status;
+```
+
+### Creating a Quoted Conversion
+
+```php
+use MangoPay\CreateQuoteConversion;
+use MangoPay\Money;
+
+// Step 1: Create a quote
+$quote = new \MangoPay\CreateConversionQuote();
+$quote->CreditedFunds = new Money();
+$quote->CreditedFunds->Currency = 'EUR';
+$quote->CreditedFunds->Amount = 10000;
+
+$quote->DebitedFunds = new Money();
+$quote->DebitedFunds->Currency = 'GBP';
+
+$quote->Duration = 90; // Quote valid for 90 seconds
+
+$createdQuote = $api->Conversions->CreateConversionQuote($quote);
+
+// Step 2: Use the quote for conversion
+$conversion = new CreateQuoteConversion();
+$conversion->QuoteId = $createdQuote->Id;
+$conversion->AuthorId = $userId;
+$conversion->DebitedWalletId = $sourceWalletId;
+$conversion->CreditedWalletId = $destinationWalletId;
+
+$createdConversion = $api->Conversions->CreateQuotedConversion($conversion);
+```
+
+## Error Handling
+
+### Comprehensive Error Handling
+
+```php
+use MangoPay\Libraries\ResponseException;
+use MangoPay\Libraries\Exception;
+
+try {
+    $user = $api->Users->Create($newUser);
+    echo "Success: User created with ID " . $user->Id;
+    
+} catch (ResponseException $e) {
+    // API returned an error response
+    echo "API Error (" . $e->GetCode() . "): " . $e->GetMessage() . "\n";
+    
+    $errorDetails = $e->GetErrorDetails();
+    
+    if ($errorDetails) {
+        // Print all error messages
+        if (isset($errorDetails->Errors)) {
+            foreach ($errorDetails->Errors as $field => $message) {
+                echo "  - {$field}: {$message}\n";
+            }
+        }
+        
+        // Check for SCA redirect
+        if (isset($errorDetails->Data['RedirectUrl'])) {
+            $redirectUrl = $errorDetails->Data['RedirectUrl'];
+            echo "SCA authentication required. Redirect to: {$redirectUrl}\n";
+        }
+    }
+    
+} catch (Exception $e) {
+    // SDK exception (network, configuration, etc.)
+    echo "SDK Exception: " . $e->GetMessage() . "\n";
+}
+```
+
+## Rate Limiting
+
+### Checking Rate Limits
+
+```php
+// Make an API call
+$users = $api->Users->GetAll();
+
+// Check rate limits
+$rateLimits = $api->RateLimits;
+
+foreach ($rateLimits as $index => $rateLimit) {
+    $interval = ['15 minutes', '30 minutes', '60 minutes', '24 hours'][$index];
+    
+    echo "Last {$interval}:\n";
+    echo "  Calls made: {$rateLimit->CallsMade}\n";
+    echo "  Calls remaining: {$rateLimit->CallsRemaining}\n";
+    echo "  Resets at: " . date('Y-m-d H:i:s', $rateLimit->ResetTimeTimestamp) . "\n";
+}
+```
+
+## Logging
+
+### Setting Up PSR-3 Logging with Monolog
+
+```php
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+use MangoPay\MangoPayApi;
+
+$logger = new Logger('mangopay');
+$logger->pushHandler(new StreamHandler('/var/log/mangopay.log', Logger::DEBUG));
+
+$api = new MangoPayApi();
+$api->setLogger($logger);
+
+// All API calls will now be logged
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-client-password';
+```
+
+## Testing
+
+### Using Sandbox Environment
+
+```php
+// Test card for successful 3DS authentication
+$cardNumber = '4970100000000154';
+$cvx = '123';
+$expirationDate = '1230'; // MMYY format
+
+// Test IBAN for successful payouts
+$testIban = 'GB33BUKB20201555555555';
+$testBic = 'BUKBGB22';
+```
+
+<Warning>
+**Never use test credentials in production!** Test IBANs and card numbers should only be used in the sandbox environment.
+</Warning>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Type Hints" icon="code">
+    Always use proper type objects like `Money`, `Address`, and `Billing` instead of raw values.
+  </Card>
+  <Card title="Handle SCA" icon="shield">
+    Always check for `PendingUserAction` and handle SCA redirects properly.
+  </Card>
+  <Card title="Validate Before API Calls" icon="check">
+    Validate required fields before making API calls to avoid unnecessary errors.
+  </Card>
+  <Card title="Use Pagination" icon="list">
+    When fetching lists, always use pagination to avoid performance issues.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Troubleshooting" icon="wrench" href="/resources/troubleshooting">
+    Common issues and solutions
+  </Card>
+  <Card title="API Reference" icon="book" href="https://docs.mangopay.com">
+    Complete API documentation
+  </Card>
+  <Card title="Migration Guide" icon="route" href="/resources/migration-guide">
+    Upgrading between versions
+  </Card>
+  <Card title="Contributing" icon="github" href="/resources/contributing">
+    Contribute to the SDK
+  </Card>
+</CardGroup>

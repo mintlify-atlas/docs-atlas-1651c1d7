@@ -1,0 +1,250 @@
+---
+title: "ApiDeposits"
+description: "API methods for managing pre-authorized deposits"
+---
+
+## Overview
+
+The `ApiDeposits` class provides methods for managing deposits (pre-authorizations) in the Mangopay platform. Deposits allow you to reserve funds on a card before capturing them, useful for scenarios like hotel bookings or security deposits.
+
+## Methods
+
+### Create
+
+Create a new deposit (pre-authorization).
+
+```php
+public function Create(CreateDeposit $deposit): Deposit
+```
+
+<ParamField path="deposit" type="CreateDeposit" required>
+  The deposit object containing payment details
+</ParamField>
+
+**Returns:** `Deposit` object
+
+**Example:**
+
+```php
+$deposit = new MangoPay\CreateDeposit();
+$deposit->AuthorId = $userId;
+$deposit->CreditedWalletId = $walletId;
+$deposit->CardId = $cardId;
+$deposit->SecureModeReturnURL = 'https://yoursite.com/return';
+$deposit->DebitedFunds = new MangoPay\Money();
+$deposit->DebitedFunds->Amount = 10000;
+$deposit->DebitedFunds->Currency = 'EUR';
+
+$createdDeposit = $api->Deposits->Create($deposit);
+```
+
+### Get
+
+Retrieve a deposit by ID.
+
+```php
+public function Get(string $depositId): Deposit
+```
+
+<ParamField path="depositId" type="string" required>
+  The deposit identifier
+</ParamField>
+
+**Returns:** `Deposit` object
+
+**Example:**
+
+```php
+$deposit = $api->Deposits->Get($depositId);
+echo "Status: " . $deposit->Status;
+echo "Remaining funds: " . $deposit->RemainingFunds->Amount;
+```
+
+### Cancel
+
+Cancel a deposit that hasn't been fully captured.
+
+```php
+public function Cancel(string $depositId, CancelDeposit $dto): Deposit
+```
+
+<ParamField path="depositId" type="string" required>
+  The deposit identifier
+</ParamField>
+
+<ParamField path="dto" type="CancelDeposit" required>
+  Cancel deposit request body
+</ParamField>
+
+**Returns:** `Deposit` object
+
+**Example:**
+
+```php
+$cancelDto = new MangoPay\CancelDeposit();
+$canceledDeposit = $api->Deposits->Cancel($depositId, $cancelDto);
+```
+
+### Update
+
+Update a deposit (typically used for capturing funds).
+
+```php
+public function Update(string $depositId, UpdateDeposit $dto): Deposit
+```
+
+<ParamField path="depositId" type="string" required>
+  The deposit identifier
+</ParamField>
+
+<ParamField path="dto" type="UpdateDeposit" required>
+  Update deposit request body with capture amount
+</ParamField>
+
+**Returns:** `Deposit` object
+
+**Example:**
+
+```php
+$updateDto = new MangoPay\UpdateDeposit();
+$updateDto->DebitedFunds = new MangoPay\Money();
+$updateDto->DebitedFunds->Amount = 5000; // Capture partial amount
+$updateDto->DebitedFunds->Currency = 'EUR';
+
+$updatedDeposit = $api->Deposits->Update($depositId, $updateDto);
+```
+
+### GetAllForUser
+
+Retrieve all deposits for a specific user.
+
+```php
+public function GetAllForUser(string $userId, ?Pagination $pagination = null, ?FilterPreAuthorizations $filter = null, ?Sorting $sorting = null): array
+```
+
+<ParamField path="userId" type="string" required>
+  User identifier
+</ParamField>
+
+<ParamField path="pagination" type="Pagination">
+  Pagination parameters
+</ParamField>
+
+<ParamField path="filter" type="FilterPreAuthorizations">
+  Filter parameters
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting parameters
+</ParamField>
+
+**Returns:** Array of `Deposit` objects
+
+### GetAllForCard
+
+Retrieve all deposits for a specific card.
+
+```php
+public function GetAllForCard(string $cardId, ?Pagination $pagination = null, ?FilterPreAuthorizations $filter = null, ?Sorting $sorting = null): array
+```
+
+<ParamField path="cardId" type="string" required>
+  Card identifier
+</ParamField>
+
+**Returns:** Array of `Deposit` objects
+
+### GetTransactions
+
+Get all transactions for a deposit.
+
+```php
+public function GetTransactions(string $depositId, ?Pagination $pagination = null, ?FilterTransactions $filter = null, ?Sorting $sorting = null): array
+```
+
+<ParamField path="depositId" type="string" required>
+  Deposit identifier
+</ParamField>
+
+**Returns:** Array of `Transaction` objects
+
+## Deposit Entity
+
+The `Deposit` object contains:
+
+<ResponseField name="Id" type="string">
+  Unique identifier
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  Deposit status (CREATED, SUCCEEDED, FAILED, etc.)
+</ResponseField>
+
+<ResponseField name="AuthorId" type="string">
+  User who created the deposit
+</ResponseField>
+
+<ResponseField name="DebitedFunds" type="Money">
+  Amount reserved
+</ResponseField>
+
+<ResponseField name="RemainingFunds" type="Money">
+  Amount not yet captured
+</ResponseField>
+
+<ResponseField name="CardId" type="string">
+  Card used for the deposit
+</ResponseField>
+
+<ResponseField name="SecureModeReturnURL" type="string">
+  URL for 3DS redirect
+</ResponseField>
+
+<ResponseField name="SecureModeRedirectURL" type="string">
+  URL where user should be redirected for 3DS
+</ResponseField>
+
+<ResponseField name="ExpirationDate" type="int">
+  Unix timestamp when deposit expires
+</ResponseField>
+
+## Complete Example
+
+```php
+// Create deposit
+$deposit = new MangoPay\CreateDeposit();
+$deposit->AuthorId = $userId;
+$deposit->CreditedWalletId = $walletId;
+$deposit->CardId = $cardId;
+$deposit->SecureModeReturnURL = 'https://yoursite.com/deposit/return';
+$deposit->DebitedFunds = new MangoPay\Money();
+$deposit->DebitedFunds->Amount = 20000; // €200.00
+$deposit->DebitedFunds->Currency = 'EUR';
+
+$createdDeposit = $api->Deposits->Create($deposit);
+
+// Check if 3DS is required
+if ($createdDeposit->SecureModeRedirectURL) {
+    // Redirect user to complete 3DS authentication
+    header('Location: ' . $createdDeposit->SecureModeRedirectURL);
+    exit;
+}
+
+// Later: Capture partial or full amount
+$updateDto = new MangoPay\UpdateDeposit();
+$updateDto->DebitedFunds = new MangoPay\Money();
+$updateDto->DebitedFunds->Amount = 15000; // Capture €150.00
+$updateDto->DebitedFunds->Currency = 'EUR';
+
+$capturedDeposit = $api->Deposits->Update($createdDeposit->Id, $updateDto);
+
+// Or cancel if not needed
+$cancelDto = new MangoPay\CancelDeposit();
+$canceledDeposit = $api->Deposits->Cancel($createdDeposit->Id, $cancelDto);
+```
+
+## See Also
+
+- [Deposits Guide](/advanced/deposits)
+- [Card Pre-Authorizations API](/api/card-preauthorizations)
+- [Cards API](/api/cards)

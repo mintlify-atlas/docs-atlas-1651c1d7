@@ -1,0 +1,550 @@
+---
+title: 'Rate Limits'
+description: 'Understand and manage API rate limits in your Mangopay integration'
+---
+
+## Overview
+
+Mangopay implements rate limiting to ensure API stability and fair usage across all clients. Rate limits restrict the number of API calls you can make within specific time windows.
+
+## Rate Limit Windows
+
+Mangopay tracks API calls across four time windows:
+
+- **Last 15 minutes**
+- **Last 30 minutes**
+- **Last 60 minutes**
+- **Last 24 hours**
+
+Each window has its own limits, and all must be respected to avoid throttling.
+
+## Checking Rate Limits
+
+After any API call, you can check your current rate limit status:
+
+```php
+require_once 'vendor/autoload.php';
+
+$api = new MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-client-password';
+$api->Config->TemporaryFolder = '/tmp/';
+
+// Make an API call
+try {
+    $users = $api->Users->GetAll();
+    
+    // Check rate limits after the call
+    $rateLimits = $api->RateLimits;
+    
+    // RateLimits is an array of 4 RateLimit objects
+    // [0] = 15 minutes
+    // [1] = 30 minutes
+    // [2] = 60 minutes
+    // [3] = 24 hours
+    
+    echo "15-minute window:\n";
+    echo "  Calls made: " . $rateLimits[0]->CallsMade . "\n";
+    echo "  Calls remaining: " . $rateLimits[0]->CallsRemaining . "\n";
+    echo "  Reset at: " . date('Y-m-d H:i:s', $rateLimits[0]->ResetTimeTimestamp) . "\n\n";
+    
+    echo "60-minute window:\n";
+    echo "  Calls made: " . $rateLimits[2]->CallsMade . "\n";
+    echo "  Calls remaining: " . $rateLimits[2]->CallsRemaining . "\n";
+    echo "  Reset at: " . date('Y-m-d H:i:s', $rateLimits[2]->ResetTimeTimestamp) . "\n";
+    
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Complete Rate Limit Monitoring
+
+Monitor all time windows:
+
+```php
+function displayRateLimits($api) {
+    $rateLimits = $api->RateLimits;
+    
+    $windows = [
+        0 => '15 minutes',
+        1 => '30 minutes',
+        2 => '60 minutes',
+        3 => '24 hours'
+    ];
+    
+    foreach ($windows as $index => $windowName) {
+        $limit = $rateLimits[$index];
+        
+        echo "Rate limit for {$windowName}:\n";
+        echo "  Calls made: {$limit->CallsMade}\n";
+        echo "  Calls remaining: {$limit->CallsRemaining}\n";
+        echo "  Resets at: " . date('H:i:s', $limit->ResetTimeTimestamp) . "\n";
+        
+        // Calculate percentage used
+        $total = $limit->CallsMade + $limit->CallsRemaining;
+        $percentage = ($limit->CallsMade / $total) * 100;
+        echo "  Usage: " . number_format($percentage, 1) . "%\n\n";
+    }
+}
+
+// Usage
+try {
+    $api->Users->Get($userId);
+    displayRateLimits($api);
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Handling Rate Limit Exceeded
+
+When you exceed rate limits, Mangopay returns a 429 status code:
+
+```php
+function makeApiCallWithRetry($api, $callable, $maxRetries = 3) {
+    $retries = 0;
+    
+    while ($retries < $maxRetries) {
+        try {
+            $result = $callable($api);
+            return $result;
+            
+        } catch (MangoPay\Libraries\ResponseException $e) {
+            // Check if rate limit exceeded
+            if ($e->GetCode() === 429) {
+                $rateLimits = $api->RateLimits;
+                
+                // Find the window with least remaining time
+                $minResetTime = PHP_INT_MAX;
+                foreach ($rateLimits as $limit) {
+                    if ($limit->CallsRemaining === 0) {
+                        $resetTime = $limit->ResetTimeTimestamp - time();
+                        $minResetTime = min($minResetTime, $resetTime);
+                    }
+                }
+                
+                if ($minResetTime > 0 && $minResetTime < 900) { // Max 15 min wait
+                    echo "Rate limit exceeded. Waiting {$minResetTime} seconds...\n";
+                    sleep($minResetTime + 1);
+                    $retries++;
+                } else {
+                    throw $e;
+                }
+            } else {
+                throw $e;
+            }
+        }
+    }
+    
+    throw new Exception('Max retries exceeded');
+}
+
+// Usage
+try {
+    $result = makeApiCallWithRetry($api, function($api) use ($userId) {
+        return $api->Users->Get($userId);
+    });
+    
+    echo "User retrieved successfully";
+} catch (Exception $e) {
+    echo "Error: " . $e->getMessage();
+}
+```
+
+## Proactive Rate Limit Management
+
+Check limits before making calls:
+
+```php
+function canMakeApiCall($api, $threshold = 0.1) {
+    $rateLimits = $api->RateLimits;
+    
+    // Check if any window is close to limit
+    foreach ($rateLimits as $limit) {
+        $total = $limit->CallsMade + $limit->CallsRemaining;
+        $remaining = $limit->CallsRemaining;
+        
+        // If less than threshold (10%) remaining
+        if ($remaining / $total < $threshold) {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+// Usage
+if (canMakeApiCall($api, 0.1)) {
+    $user = $api->Users->Get($userId);
+} else {
+    echo "Approaching rate limit. Waiting before next call...";
+    sleep(60);
+}
+```
+
+## Batch Processing with Rate Limits
+
+Process items in batches while respecting rate limits:
+
+```php
+function processBatchWithRateLimits($api, $items, $processor) {
+    $processed = [];
+    $failed = [];
+    
+    foreach ($items as $item) {
+        // Check rate limits
+        $rateLimits = $api->RateLimits;
+        $shouldWait = false;
+        $waitTime = 0;
+        
+        // Check if any window is at 90% capacity
+        foreach ($rateLimits as $limit) {
+            $total = $limit->CallsMade + $limit->CallsRemaining;
+            if ($limit->CallsRemaining < $total * 0.1) {
+                $shouldWait = true;
+                $waitTime = max($waitTime, $limit->ResetTimeTimestamp - time());
+            }
+        }
+        
+        if ($shouldWait && $waitTime > 0) {
+            echo "Approaching rate limit. Waiting {$waitTime} seconds...\n";
+            sleep($waitTime + 1);
+        }
+        
+        try {
+            $result = $processor($api, $item);
+            $processed[] = [
+                'item' => $item,
+                'result' => $result
+            ];
+        } catch (MangoPay\Libraries\ResponseException $e) {
+            $failed[] = [
+                'item' => $item,
+                'error' => $e->GetMessage()
+            ];
+        }
+        
+        // Small delay between requests
+        usleep(100000); // 100ms
+    }
+    
+    return [
+        'processed' => $processed,
+        'failed' => $failed
+    ];
+}
+
+// Usage
+$userIds = ['user_1', 'user_2', 'user_3', /* ... */];
+
+$results = processBatchWithRateLimits($api, $userIds, function($api, $userId) {
+    return $api->Users->Get($userId);
+});
+
+echo "Processed: " . count($results['processed']) . "\n";
+echo "Failed: " . count($results['failed']);
+```
+
+## Rate Limit Dashboard
+
+Create a monitoring dashboard:
+
+```php
+class RateLimitMonitor {
+    private $api;
+    
+    public function __construct($api) {
+        $this->api = $api;
+    }
+    
+    public function getStatus() {
+        $rateLimits = $this->api->RateLimits;
+        
+        return [
+            '15min' => $this->getLimitInfo($rateLimits[0]),
+            '30min' => $this->getLimitInfo($rateLimits[1]),
+            '60min' => $this->getLimitInfo($rateLimits[2]),
+            '24hours' => $this->getLimitInfo($rateLimits[3])
+        ];
+    }
+    
+    private function getLimitInfo($limit) {
+        $total = $limit->CallsMade + $limit->CallsRemaining;
+        $percentage = ($limit->CallsMade / $total) * 100;
+        
+        return [
+            'calls_made' => $limit->CallsMade,
+            'calls_remaining' => $limit->CallsRemaining,
+            'percentage_used' => round($percentage, 2),
+            'reset_at' => date('Y-m-d H:i:s', $limit->ResetTimeTimestamp),
+            'seconds_until_reset' => $limit->ResetTimeTimestamp - time()
+        ];
+    }
+    
+    public function getHealth() {
+        $status = $this->getStatus();
+        
+        foreach ($status as $window => $info) {
+            if ($info['percentage_used'] > 90) {
+                return 'critical';
+            } elseif ($info['percentage_used'] > 75) {
+                return 'warning';
+            }
+        }
+        
+        return 'healthy';
+    }
+    
+    public function displayStatus() {
+        $status = $this->getStatus();
+        
+        foreach ($status as $window => $info) {
+            $bar = $this->createProgressBar($info['percentage_used']);
+            
+            echo "{$window}:\n";
+            echo "  {$bar} {$info['percentage_used']}%\n";
+            echo "  {$info['calls_made']} / " . 
+                 ($info['calls_made'] + $info['calls_remaining']) . " calls\n";
+            echo "  Resets in {$info['seconds_until_reset']} seconds\n\n";
+        }
+        
+        echo "Overall health: " . strtoupper($this->getHealth()) . "\n";
+    }
+    
+    private function createProgressBar($percentage, $length = 40) {
+        $filled = round(($percentage / 100) * $length);
+        $empty = $length - $filled;
+        
+        return '[' . str_repeat('=', $filled) . str_repeat(' ', $empty) . ']';
+    }
+}
+
+// Usage
+$monitor = new RateLimitMonitor($api);
+
+// Make some API calls
+$api->Users->Get($userId);
+
+// Display status
+$monitor->displayStatus();
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Check Before Batch" icon="list-check">
+    Always check rate limits before processing large batches.
+  </Card>
+  
+  <Card title="Implement Backoff" icon="clock">
+    Use exponential backoff when approaching limits.
+  </Card>
+  
+  <Card title="Cache Data" icon="database">
+    Cache frequently accessed data to reduce API calls.
+  </Card>
+  
+  <Card title="Monitor Usage" icon="chart-line">
+    Track rate limit usage over time to optimize performance.
+  </Card>
+</CardGroup>
+
+## Optimization Strategies
+
+### 1. Use Pagination Efficiently
+
+Request more items per page to reduce total calls:
+
+```php
+// Less efficient: 10 calls for 100 items
+$pagination = new MangoPay\Pagination(1, 10);
+
+// More efficient: 1 call for 100 items
+$pagination = new MangoPay\Pagination(1, 100);
+
+$users = $api->Users->GetAll($pagination);
+```
+
+### 2. Cache Frequently Accessed Data
+
+```php
+class CachedMangopayClient {
+    private $api;
+    private $cache = [];
+    private $cacheTTL = 300; // 5 minutes
+    
+    public function __construct($api) {
+        $this->api = $api;
+    }
+    
+    public function getUser($userId) {
+        $cacheKey = "user_{$userId}";
+        
+        // Check cache
+        if (isset($this->cache[$cacheKey])) {
+            $cached = $this->cache[$cacheKey];
+            if (time() - $cached['time'] < $this->cacheTTL) {
+                return $cached['data'];
+            }
+        }
+        
+        // Fetch from API
+        $user = $this->api->Users->Get($userId);
+        
+        // Cache result
+        $this->cache[$cacheKey] = [
+            'data' => $user,
+            'time' => time()
+        ];
+        
+        return $user;
+    }
+}
+
+$client = new CachedMangopayClient($api);
+
+// First call hits API
+$user = $client->getUser($userId);
+
+// Subsequent calls within 5 minutes use cache
+$user = $client->getUser($userId); // No API call
+```
+
+### 3. Batch Operations When Possible
+
+Group related operations:
+
+```php
+// Instead of multiple individual calls
+foreach ($userIds as $userId) {
+    $user = $api->Users->Get($userId); // Many API calls
+}
+
+// Use GetAll with filtering
+$pagination = new MangoPay\Pagination(1, 100);
+$allUsers = $api->Users->GetAll($pagination); // One API call
+```
+
+## Rate Limit Alerts
+
+Set up alerts when approaching limits:
+
+```php
+function checkRateLimitAlert($api, $thresholds = [80, 90, 95]) {
+    $rateLimits = $api->RateLimits;
+    $alerts = [];
+    
+    $windows = ['15 minutes', '30 minutes', '60 minutes', '24 hours'];
+    
+    foreach ($rateLimits as $index => $limit) {
+        $total = $limit->CallsMade + $limit->CallsRemaining;
+        $percentage = ($limit->CallsMade / $total) * 100;
+        
+        foreach ($thresholds as $threshold) {
+            if ($percentage >= $threshold) {
+                $alerts[] = [
+                    'window' => $windows[$index],
+                    'percentage' => round($percentage, 2),
+                    'level' => $threshold >= 95 ? 'critical' : 
+                              ($threshold >= 90 ? 'warning' : 'info'),
+                    'reset_in' => $limit->ResetTimeTimestamp - time()
+                ];
+                break;
+            }
+        }
+    }
+    
+    return $alerts;
+}
+
+// Check after API calls
+$api->Users->Get($userId);
+$alerts = checkRateLimitAlert($api);
+
+foreach ($alerts as $alert) {
+    error_log(
+        "RATE LIMIT {$alert['level']}: " .
+        "{$alert['window']} window at {$alert['percentage']}% " .
+        "(resets in {$alert['reset_in']}s)"
+    );
+}
+```
+
+## Error Handling
+
+Comprehensive error handling for rate limits:
+
+```php
+try {
+    $result = $api->Users->Get($userId);
+} catch (MangoPay\Libraries\ResponseException $e) {
+    if ($e->GetCode() === 429) {
+        // Rate limit exceeded
+        $rateLimits = $api->RateLimits;
+        
+        error_log('Rate limit exceeded!');
+        error_log('15-min calls remaining: ' . $rateLimits[0]->CallsRemaining);
+        error_log('60-min calls remaining: ' . $rateLimits[2]->CallsRemaining);
+        
+        // Calculate wait time
+        $waitTime = 0;
+        foreach ($rateLimits as $limit) {
+            if ($limit->CallsRemaining === 0) {
+                $resetTime = $limit->ResetTimeTimestamp - time();
+                $waitTime = max($waitTime, $resetTime);
+            }
+        }
+        
+        throw new Exception("Rate limit exceeded. Retry in {$waitTime} seconds");
+    } else {
+        throw $e;
+    }
+}
+```
+
+## Testing Rate Limits
+
+Test your rate limit handling:
+
+```php
+function testRateLimitHandling($api) {
+    $callCount = 0;
+    $startTime = time();
+    
+    try {
+        // Make rapid API calls
+        while (true) {
+            $api->Users->GetAll(new MangoPay\Pagination(1, 1));
+            $callCount++;
+            
+            $rateLimits = $api->RateLimits;
+            echo "Call #{$callCount}: " . 
+                 "{$rateLimits[0]->CallsRemaining} remaining in 15-min window\n";
+            
+            // Stop if we hit the limit
+            if ($rateLimits[0]->CallsRemaining < 5) {
+                echo "Approaching limit. Stopping test.\n";
+                break;
+            }
+        }
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        if ($e->GetCode() === 429) {
+            echo "Rate limit hit after {$callCount} calls in " . 
+                 (time() - $startTime) . " seconds\n";
+        }
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Webhooks" icon="webhook" href="/guides/webhooks">
+    Reduce polling by using webhooks
+  </Card>
+  
+  <Card title="API Reference" icon="book" href="/api-reference">
+    View complete API documentation
+  </Card>
+</CardGroup>

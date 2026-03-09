@@ -1,0 +1,320 @@
+---
+title: 'Mandates'
+description: 'Manage direct debit mandates in Mangopay'
+icon: 'file-signature'
+---
+
+The `ApiMandates` class provides methods to create and manage direct debit mandates, which authorize recurring payments from a bank account.
+
+## Methods
+
+### Create
+
+Create a new mandate.
+
+```php
+public function Create($mandate, $idempotencyKey = null)
+```
+
+<ParamField path="mandate" type="\MangoPay\Mandate" required>
+  The Mandate object to create
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key for safe retries
+</ParamField>
+
+**Returns:** `\MangoPay\Mandate` - The created Mandate object
+
+**Example:**
+
+```php
+$mandate = new \MangoPay\Mandate();
+$mandate->BankAccountId = 'bankaccount_123456';
+$mandate->Culture = 'EN';
+$mandate->ReturnURL = 'https://example.com/mandate-return';
+
+$result = $api->Mandates->Create($mandate);
+
+// Redirect user to confirm the mandate
+header('Location: ' . $result->RedirectURL);
+```
+
+### Get
+
+Get a mandate by its ID.
+
+```php
+public function Get($mandateId)
+```
+
+<ParamField path="mandateId" type="string" required>
+  The unique identifier of the mandate
+</ParamField>
+
+**Returns:** `\MangoPay\Mandate` - The Mandate object
+
+**Example:**
+
+```php
+$mandate = $api->Mandates->Get('mandate_123456');
+```
+
+### Cancel
+
+Cancel an active mandate.
+
+```php
+public function Cancel($mandateId)
+```
+
+<ParamField path="mandateId" type="string" required>
+  The ID of the mandate to cancel
+</ParamField>
+
+**Returns:** `\MangoPay\Mandate` - The updated Mandate object
+
+**Example:**
+
+```php
+$result = $api->Mandates->Cancel('mandate_123456');
+
+if ($result->Status === 'FAILED') {
+    echo "Mandate canceled successfully";
+}
+```
+
+### GetAll
+
+Retrieve all mandates.
+
+```php
+public function GetAll(& $pagination = null, $filter = null, $sorting = null)
+```
+
+<ParamField path="pagination" type="\MangoPay\Pagination">
+  Pagination object (passed by reference)
+</ParamField>
+
+<ParamField path="filter" type="\MangoPay\FilterTransactions">
+  Filtering options
+</ParamField>
+
+<ParamField path="sorting" type="\MangoPay\Sorting">
+  Sorting options
+</ParamField>
+
+**Returns:** `\MangoPay\Mandate[]` - Array of Mandate objects
+
+**Example:**
+
+```php
+$pagination = new \MangoPay\Pagination();
+$mandates = $api->Mandates->GetAll($pagination);
+
+foreach ($mandates as $mandate) {
+    echo "Mandate: " . $mandate->Id . " - " . $mandate->Status . "\n";
+}
+```
+
+### GetTransactions
+
+Retrieve all transactions for a specific mandate.
+
+```php
+public function GetTransactions($mandateId, & $pagination = null, $filter = null, $sorting = null)
+```
+
+<ParamField path="mandateId" type="string" required>
+  The ID of the mandate
+</ParamField>
+
+<ParamField path="pagination" type="\MangoPay\Pagination">
+  Pagination object (passed by reference)
+</ParamField>
+
+<ParamField path="filter" type="\MangoPay\FilterTransactions">
+  Filtering options
+</ParamField>
+
+<ParamField path="sorting" type="\MangoPay\Sorting">
+  Sorting options
+</ParamField>
+
+**Returns:** `\MangoPay\Transaction[]` - Array of Transaction objects
+
+**Example:**
+
+```php
+$pagination = new \MangoPay\Pagination();
+$transactions = $api->Mandates->GetTransactions('mandate_123456', $pagination);
+
+foreach ($transactions as $transaction) {
+    echo "Transaction: " . $transaction->Id . " - " . $transaction->Status . "\n";
+}
+```
+
+<Note>
+  To get mandates for a specific user, use `$api->Users->GetMandates($userId, $pagination, $sorting)`
+</Note>
+
+## Mandate Entity
+
+The `Mandate` entity represents a direct debit mandate authorization.
+
+### Properties
+
+<ResponseField name="Id" type="string">
+  The unique identifier of the mandate
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of when the mandate was created
+</ResponseField>
+
+<ResponseField name="Tag" type="string">
+  Custom data for your use
+</ResponseField>
+
+<ResponseField name="BankAccountId" type="string" required>
+  The ID of the bank account to associate with this mandate
+</ResponseField>
+
+<ResponseField name="UserId" type="string">
+  The ID of the user who owns the mandate
+</ResponseField>
+
+<ResponseField name="Scheme" type="string">
+  The mandate scheme type: `SEPA` or `BACS` (completed once mandate is submitted)
+</ResponseField>
+
+<ResponseField name="Culture" type="string" required>
+  The language for the mandate confirmation page: `EN`, `FR`, `NL`, `DE`, `ES`, `IT`, `PL`, `PT`
+</ResponseField>
+
+<ResponseField name="DocumentURL" type="string">
+  The URL to view/download the mandate document
+</ResponseField>
+
+<ResponseField name="RedirectURL" type="string">
+  The URL to redirect the user to for mandate confirmation
+</ResponseField>
+
+<ResponseField name="ReturnURL" type="string" required>
+  The URL where the user is redirected after mandate confirmation
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  The status of the mandate: `CREATED`, `SUBMITTED`, `ACTIVE`, `FAILED`, `EXPIRED`
+</ResponseField>
+
+<ResponseField name="ResultCode" type="string">
+  The result code of the mandate
+</ResponseField>
+
+<ResponseField name="ResultMessage" type="string">
+  The result message explaining the result code
+</ResponseField>
+
+<ResponseField name="MandateType" type="string">
+  The type of mandate: `DIRECT_DEBIT`
+</ResponseField>
+
+<ResponseField name="ExecutionType" type="string">
+  How the mandate is created: `WEB`
+</ResponseField>
+
+<ResponseField name="BankReference" type="string">
+  The unique bank reference for the mandate
+</ResponseField>
+
+## Mandate Flow
+
+### Step 1: Create the Mandate
+
+```php
+// Create a mandate for a bank account
+$mandate = new \MangoPay\Mandate();
+$mandate->BankAccountId = 'bankaccount_123456';
+$mandate->Culture = 'EN';
+$mandate->ReturnURL = 'https://example.com/mandate-return';
+
+$result = $api->Mandates->Create($mandate);
+
+echo "Mandate ID: " . $result->Id . "\n";
+echo "Status: " . $result->Status . "\n";
+echo "Redirect URL: " . $result->RedirectURL . "\n";
+```
+
+### Step 2: User Confirmation
+
+```php
+// Redirect user to confirm the mandate
+header('Location: ' . $result->RedirectURL);
+exit;
+```
+
+### Step 3: Check Mandate Status
+
+```php
+// After user returns to your ReturnURL
+$mandate = $api->Mandates->Get($mandateId);
+
+if ($mandate->Status === 'ACTIVE') {
+    echo "Mandate is active and ready to use";
+} elseif ($mandate->Status === 'SUBMITTED') {
+    echo "Mandate submitted, waiting for activation";
+} else {
+    echo "Mandate status: " . $mandate->Status;
+    echo "Error: " . $mandate->ResultMessage;
+}
+```
+
+### Step 4: Use the Mandate for Direct Debit Pay-ins
+
+```php
+// Create a direct debit pay-in using the mandate
+$payIn = new \MangoPay\PayIn();
+$payIn->AuthorId = $userId;
+$payIn->CreditedWalletId = $walletId;
+$payIn->DebitedFunds = new \MangoPay\Money();
+$payIn->DebitedFunds->Currency = 'EUR';
+$payIn->DebitedFunds->Amount = 1000;
+$payIn->Fees = new \MangoPay\Money();
+$payIn->Fees->Currency = 'EUR';
+$payIn->Fees->Amount = 10;
+
+$payIn->PaymentType = 'DIRECT_DEBIT';
+$payIn->ExecutionType = 'DIRECT';
+
+$paymentDetails = new \MangoPay\PayInPaymentDetailsDirectDebitDirect();
+$paymentDetails->MandateId = $mandate->Id;
+$payIn->PaymentDetails = $paymentDetails;
+
+$executionDetails = new \MangoPay\PayInExecutionDetailsDirect();
+$payIn->ExecutionDetails = $executionDetails;
+
+$result = $api->PayIns->Create($payIn);
+```
+
+## SEPA vs BACS Mandates
+
+### SEPA (Single Euro Payments Area)
+
+- Used for bank accounts in the European Economic Area
+- Supports EUR currency
+- Scheme is determined automatically based on bank account country
+
+### BACS (Bankers' Automated Clearing Services)
+
+- Used for bank accounts in the United Kingdom
+- Supports GBP currency
+- Scheme is determined automatically based on bank account country
+
+<Warning>
+  Mandates must be confirmed by the user before they can be used for direct debit transactions. Always redirect users to the `RedirectURL` for confirmation.
+</Warning>
+
+<Note>
+  Once a mandate is `ACTIVE`, it can be used for multiple direct debit pay-ins until it expires or is canceled.
+</Note>

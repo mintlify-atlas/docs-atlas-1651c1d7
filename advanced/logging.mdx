@@ -1,0 +1,448 @@
+---
+title: "Logging"
+description: "Configure logging for debugging and monitoring your Mangopay integration"
+icon: "file-lines"
+---
+
+## Overview
+
+The Mangopay PHP SDK supports PSR-3 compliant logging, allowing you to integrate with any logging library that implements the `Psr\Log\LoggerInterface`. This enables you to track API calls, debug issues, and monitor your integration's behavior.
+
+## PSR-3 Compliance
+
+The SDK uses the [PSR-3 Logger Interface](https://www.php-fig.org/psr/psr-3/) standard, which means you can use popular logging libraries like:
+
+- Monolog
+- KLogger
+- Analog
+- Any PSR-3 compliant logger
+
+## Setting Up Monolog
+
+Monolog is the most popular PHP logging library and works seamlessly with the SDK:
+
+### Installation
+
+```bash
+composer require monolog/monolog
+```
+
+### Basic Configuration
+
+```php
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+use MangoPay\MangoPayApi;
+
+// Create a logger instance
+$logger = new Logger('mangopay-sdk');
+$logger->pushHandler(
+    new StreamHandler('/var/log/mangopay.log', Logger::DEBUG)
+);
+
+// Initialize MangoPayApi
+$api = new MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+$api->Config->TemporaryFolder = '/tmp/';
+
+// Attach the logger to the SDK
+$api->setLogger($logger);
+
+// Now all API calls will be logged
+$user = $api->Users->Get('user_123456');
+```
+
+## Log Levels
+
+Configure different log levels based on your environment:
+
+```php
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+
+$logger = new Logger('mangopay-sdk');
+
+// Development: Log everything
+$logger->pushHandler(
+    new StreamHandler('/var/log/mangopay-debug.log', Logger::DEBUG)
+);
+
+// Production: Log only warnings and errors
+$logger->pushHandler(
+    new StreamHandler('/var/log/mangopay-error.log', Logger::WARNING)
+);
+```
+
+## Multiple Handlers
+
+Use multiple handlers to route logs to different destinations:
+
+```php
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+use Monolog\Handler\RotatingFileHandler;
+use Monolog\Handler\FirePHPHandler;
+
+$logger = new Logger('mangopay-sdk');
+
+// Log to file
+$logger->pushHandler(
+    new StreamHandler('/var/log/mangopay.log', Logger::INFO)
+);
+
+// Log to rotating files (new file each day)
+$logger->pushHandler(
+    new RotatingFileHandler(
+        '/var/log/mangopay/sdk.log',
+        30, // Keep 30 days
+        Logger::INFO
+    )
+);
+
+// Log to browser console (development only)
+if ($_ENV['APP_ENV'] === 'development') {
+    $logger->pushHandler(new FirePHPHandler());
+}
+
+$api = new MangoPayApi();
+$api->setLogger($logger);
+```
+
+## Formatting Logs
+
+Customize log output format:
+
+```php
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+use Monolog\Formatter\LineFormatter;
+
+$logger = new Logger('mangopay-sdk');
+$handler = new StreamHandler('/var/log/mangopay.log', Logger::DEBUG);
+
+// Custom format
+$formatter = new LineFormatter(
+    "[%datetime%] %channel%.%level_name%: %message% %context%\n",
+    "Y-m-d H:i:s"
+);
+$handler->setFormatter($formatter);
+
+$logger->pushHandler($handler);
+$api = new MangoPayApi();
+$api->setLogger($logger);
+```
+
+## Logging to Syslog
+
+Log to system log for centralized monitoring:
+
+```php
+use Monolog\Logger;
+use Monolog\Handler\SyslogHandler;
+
+$logger = new Logger('mangopay-sdk');
+$logger->pushHandler(
+    new SyslogHandler('mangopay', LOG_USER, Logger::INFO)
+);
+
+$api = new MangoPayApi();
+$api->setLogger($logger);
+```
+
+## Email Notifications for Errors
+
+Receive email alerts for critical errors:
+
+```php
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+use Monolog\Handler\NativeMailerHandler;
+
+$logger = new Logger('mangopay-sdk');
+
+// Log everything to file
+$logger->pushHandler(
+    new StreamHandler('/var/log/mangopay.log', Logger::DEBUG)
+);
+
+// Email critical errors
+$logger->pushHandler(
+    new NativeMailerHandler(
+        'admin@example.com',
+        'Mangopay Critical Error',
+        'alerts@example.com',
+        Logger::CRITICAL
+    )
+);
+
+$api = new MangoPayApi();
+$api->setLogger($logger);
+```
+
+## Logging in Symfony
+
+Integrate with Symfony's logging system:
+
+```php
+namespace App\Service;
+
+use MangoPay\MangoPayApi;
+use Psr\Log\LoggerInterface;
+
+class MangoPayService
+{
+    private $api;
+    
+    public function __construct(LoggerInterface $logger)
+    {
+        $this->api = new MangoPayApi();
+        $this->api->Config->ClientId = $_ENV['MANGOPAY_CLIENT_ID'];
+        $this->api->Config->ClientPassword = $_ENV['MANGOPAY_API_KEY'];
+        $this->api->Config->TemporaryFolder = '/tmp/';
+        
+        // Inject Symfony's logger
+        $this->api->setLogger($logger);
+    }
+    
+    public function getUser(string $userId)
+    {
+        return $this->api->Users->Get($userId);
+    }
+}
+```
+
+Configure in `services.yaml`:
+
+```yaml
+services:
+  App\Service\MangoPayService:
+    arguments:
+      $logger: '@monolog.logger.mangopay'
+```
+
+## Logging in Laravel
+
+Use Laravel's built-in logging:
+
+```php
+namespace App\Services;
+
+use MangoPay\MangoPayApi;
+use Illuminate\Support\Facades\Log;
+
+class MangoPayService
+{
+    protected $api;
+    
+    public function __construct()
+    {
+        $this->api = new MangoPayApi();
+        $this->api->Config->ClientId = config('mangopay.client_id');
+        $this->api->Config->ClientPassword = config('mangopay.api_key');
+        $this->api->Config->TemporaryFolder = storage_path('tmp');
+        
+        // Use Laravel's logger
+        $this->api->setLogger(Log::channel('mangopay'));
+    }
+}
+```
+
+Configure in `config/logging.php`:
+
+```php
+'channels' => [
+    'mangopay' => [
+        'driver' => 'daily',
+        'path' => storage_path('logs/mangopay.log'),
+        'level' => env('MANGOPAY_LOG_LEVEL', 'info'),
+        'days' => 14,
+    ],
+],
+```
+
+## Custom Logger Implementation
+
+Create a custom logger for specific needs:
+
+```php
+use Psr\Log\AbstractLogger;
+use Psr\Log\LogLevel;
+
+class CustomMangoPayLogger extends AbstractLogger
+{
+    private $logFile;
+    
+    public function __construct(string $logFile)
+    {
+        $this->logFile = $logFile;
+    }
+    
+    public function log($level, $message, array $context = [])
+    {
+        $timestamp = date('Y-m-d H:i:s');
+        $contextStr = !empty($context) ? json_encode($context) : '';
+        
+        $logMessage = sprintf(
+            "[%s] %s: %s %s\n",
+            $timestamp,
+            strtoupper($level),
+            $message,
+            $contextStr
+        );
+        
+        file_put_contents($this->logFile, $logMessage, FILE_APPEND);
+        
+        // Also log to database for critical errors
+        if ($level === LogLevel::CRITICAL || $level === LogLevel::ERROR) {
+            $this->logToDatabase($level, $message, $context);
+        }
+    }
+    
+    private function logToDatabase($level, $message, $context)
+    {
+        // Your database logging logic
+    }
+}
+
+// Usage
+$logger = new CustomMangoPayLogger('/var/log/mangopay-custom.log');
+$api = new MangoPayApi();
+$api->setLogger($logger);
+```
+
+## What Gets Logged
+
+The SDK logs various events including:
+
+- API requests and responses
+- Authentication token generation
+- Error messages and exceptions
+- Rate limit information
+- Network timeouts
+
+## Filtering Sensitive Data
+
+Ensure sensitive data is not logged:
+
+```php
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+use Monolog\Processor\ProcessorInterface;
+
+class SensitiveDataProcessor implements ProcessorInterface
+{
+    public function __invoke(array $record): array
+    {
+        // Remove sensitive fields from context
+        if (isset($record['context']['card_number'])) {
+            $record['context']['card_number'] = '****';
+        }
+        
+        if (isset($record['context']['cvv'])) {
+            unset($record['context']['cvv']);
+        }
+        
+        return $record;
+    }
+}
+
+$logger = new Logger('mangopay-sdk');
+$logger->pushHandler(new StreamHandler('/var/log/mangopay.log', Logger::DEBUG));
+$logger->pushProcessor(new SensitiveDataProcessor());
+
+$api = new MangoPayApi();
+$api->setLogger($logger);
+```
+
+## Environment-Based Configuration
+
+Adjust logging based on environment:
+
+```php
+$logger = new Logger('mangopay-sdk');
+
+if ($_ENV['APP_ENV'] === 'production') {
+    // Production: Only errors to file
+    $logger->pushHandler(
+        new StreamHandler('/var/log/mangopay-prod.log', Logger::ERROR)
+    );
+} elseif ($_ENV['APP_ENV'] === 'staging') {
+    // Staging: Info and above
+    $logger->pushHandler(
+        new StreamHandler('/var/log/mangopay-staging.log', Logger::INFO)
+    );
+} else {
+    // Development: Everything
+    $logger->pushHandler(
+        new StreamHandler('php://stdout', Logger::DEBUG)
+    );
+}
+
+$api = new MangoPayApi();
+$api->setLogger($logger);
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Appropriate Levels" icon="layer-group">
+    Use DEBUG for development, INFO for production, and ERROR for critical issues.
+  </Card>
+  
+  <Card title="Rotate Log Files" icon="rotate">
+    Implement log rotation to prevent disk space issues.
+  </Card>
+  
+  <Card title="Protect Sensitive Data" icon="shield-halved">
+    Never log card numbers, CVV codes, or API credentials.
+  </Card>
+  
+  <Card title="Monitor Logs" icon="chart-line">
+    Set up alerts for error patterns and unusual activity.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+Common logging issues and solutions:
+
+### Logs Not Appearing
+
+```php
+// Check file permissions
+if (!is_writable('/var/log/mangopay.log')) {
+    throw new Exception('Log file is not writable');
+}
+
+// Verify logger is attached
+if ($api->getLogger() === null) {
+    echo "Logger not attached to SDK";
+}
+```
+
+### Testing Logger Configuration
+
+```php
+$logger = new Logger('test');
+$logger->pushHandler(new StreamHandler('/var/log/test.log', Logger::DEBUG));
+
+$logger->debug('Test debug message');
+$logger->info('Test info message');
+$logger->warning('Test warning message');
+$logger->error('Test error message');
+
+echo "Check /var/log/test.log for messages";
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Monolog Documentation" icon="book" href="https://github.com/Seldaek/monolog">
+    Official Monolog documentation
+  </Card>
+  
+  <Card title="PSR-3 Standard" icon="file-code" href="https://www.php-fig.org/psr/psr-3/">
+    PSR-3 Logger Interface specification
+  </Card>
+</CardGroup>

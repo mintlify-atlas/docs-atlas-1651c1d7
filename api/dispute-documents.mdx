@@ -1,0 +1,192 @@
+---
+title: "ApiDisputeDocuments"
+description: "API methods for managing dispute-related documents"
+---
+
+## Overview
+
+The `ApiDisputeDocuments` class provides methods for managing documents related to disputes. These documents are used as evidence when contesting chargebacks.
+
+## Methods
+
+### Get
+
+Retrieve a dispute document by ID.
+
+```php
+public function Get(string $documentId): DisputeDocument
+```
+
+<ParamField path="documentId" type="string" required>
+  The dispute document identifier
+</ParamField>
+
+**Returns:** `DisputeDocument` object
+
+**Example:**
+
+```php
+$doc = $api->DisputeDocuments->Get($documentId);
+echo "Type: " . $doc->Type;
+echo "Status: " . $doc->Status;
+```
+
+### GetAll
+
+Retrieve all dispute documents for the client.
+
+```php
+public function GetAll(?Pagination &$pagination = null, ?Sorting $sorting = null, ?FilterKycDocuments $filter = null): array
+```
+
+<ParamField path="pagination" type="Pagination">
+  Pagination parameters (passed by reference)
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting parameters
+</ParamField>
+
+<ParamField path="filter" type="FilterKycDocuments">
+  Filter parameters
+</ParamField>
+
+**Returns:** Array of `DisputeDocument` objects
+
+**Example:**
+
+```php
+$pagination = new MangoPay\Pagination(1, 20);
+$documents = $api->DisputeDocuments->GetAll($pagination);
+
+foreach ($documents as $doc) {
+    echo "Document {$doc->Id}: {$doc->Type}\n";
+}
+```
+
+### CreateDisputeDocumentConsult
+
+Create temporary URLs to view dispute document pages.
+
+```php
+public function CreateDisputeDocumentConsult(string $documentId, ?Pagination &$pagination = null): array
+```
+
+<ParamField path="documentId" type="string" required>
+  The dispute document identifier
+</ParamField>
+
+<ParamField path="pagination" type="Pagination">
+  Pagination parameters
+</ParamField>
+
+**Returns:** Array of `DocumentPageConsult` objects containing temporary view URLs
+
+**Example:**
+
+```php
+$consults = $api->DisputeDocuments->CreateDisputeDocumentConsult($documentId);
+
+foreach ($consults as $consult) {
+    echo "View page at: " . $consult->Url . "\n";
+    echo "Expires at: " . date('Y-m-d H:i:s', $consult->ExpirationDate) . "\n";
+}
+```
+
+## DisputeDocument Entity
+
+The `DisputeDocument` object contains:
+
+<ResponseField name="Id" type="string">
+  Unique identifier
+</ResponseField>
+
+<ResponseField name="Type" type="string">
+  Document type (DELIVERY_PROOF, INVOICE, REFUND_PROOF, USER_CORRESPONDANCE, etc.)
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  Document status (CREATED, VALIDATION_ASKED, VALIDATED, REFUSED)
+</ResponseField>
+
+<ResponseField name="RefusedReasonType" type="string">
+  Reason if document was refused
+</ResponseField>
+
+<ResponseField name="RefusedReasonMessage" type="string">
+  Detailed message if refused
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of creation
+</ResponseField>
+
+<ResponseField name="ProcessedDate" type="int">
+  Unix timestamp when processed
+</ResponseField>
+
+<ResponseField name="DisputeId" type="string">
+  ID of the associated dispute
+</ResponseField>
+
+## DocumentPageConsult Entity
+
+<ResponseField name="Url" type="string">
+  Temporary URL to view the document page
+</ResponseField>
+
+<ResponseField name="ExpirationDate" type="int">
+  Unix timestamp when the URL expires (typically 10 minutes)
+</ResponseField>
+
+## Document Types
+
+Valid dispute document types:
+
+- `DELIVERY_PROOF` - Proof of delivery for physical goods
+- `INVOICE` - Invoice or receipt
+- `REFUND_PROOF` - Proof that refund was issued
+- `USER_CORRESPONDANCE` - Communication with the user
+- `USER_ACCEPTANCE_PROOF` - Proof user accepted terms
+- `PRODUCT_REPLACEMENT_PROOF` - Proof of product replacement
+- `REFUND_REFUSAL_JUSTIFICATION_PROOF` - Justification for refusing refund
+- `TERMS_AND_CONDITIONS` - Your terms and conditions
+- `OTHER` - Other supporting evidence
+
+## Complete Example
+
+```php
+// Create a dispute document
+$doc = new MangoPay\DisputeDocument();
+$doc->Type = 'DELIVERY_PROOF';
+$disputeDoc = $api->DisputeDocuments->CreateDisputeDocument($doc, $disputeId);
+
+// Upload document pages (base64 encoded)
+$pageContent = base64_encode(file_get_contents('/path/to/delivery-proof.pdf'));
+$api->DisputeDocuments->CreateDisputeDocumentPage(
+    $disputeId,
+    $disputeDoc->Id,
+    $pageContent
+);
+
+// Submit for validation
+$disputeDoc->Status = 'VALIDATION_ASKED';
+$submittedDoc = $api->DisputeDocuments->UpdateDisputeDocument($disputeId, $disputeDoc);
+
+// Later: View the document pages
+$consults = $api->DisputeDocuments->CreateDisputeDocumentConsult($disputeDoc->Id);
+foreach ($consults as $consult) {
+    // Display or process the temporary URL
+    echo "View: " . $consult->Url . "\n";
+}
+```
+
+<Note>
+Temporary view URLs expire after 10 minutes. Generate new consult URLs if you need to view the document again.
+</Note>
+
+## See Also
+
+- [Disputes API](/api/disputes)
+- [Disputes Guide](/advanced/disputes)
+- [KYC Documents API](/api/kyc-documents)

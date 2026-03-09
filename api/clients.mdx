@@ -1,0 +1,440 @@
+---
+title: "ApiClients"
+description: "API methods for managing client information and wallets"
+---
+
+## Overview
+
+The `ApiClients` class provides methods for managing your Mangopay client account information, including platform details, client wallets (fees and credit), and platform-level operations.
+
+## Methods
+
+### Get
+
+Retrieve your client information.
+
+```php
+public function Get(): Client
+```
+
+**Returns:** `Client` object with your platform details
+
+**Example:**
+
+```php
+$client = $api->Clients->Get();
+echo "Client ID: " . $client->ClientId . "\n";
+echo "Name: " . $client->Name . "\n";
+echo "Email: " . $client->Email . "\n";
+echo "Primary theme color: " . $client->PrimaryThemeColour . "\n";
+```
+
+### Update
+
+Update your client information.
+
+```php
+public function Update(Client $client): Client
+```
+
+<ParamField path="client" type="Client" required>
+  Client object with updated properties
+</ParamField>
+
+**Returns:** Updated `Client` object
+
+**Example:**
+
+```php
+$client = $api->Clients->Get();
+$client->PrimaryThemeColour = '#FF0000';
+$client->PrimaryButtonColour = '#00FF00';
+$client->TechEmails = ['tech@yourplatform.com', 'dev@yourplatform.com'];
+
+$updatedClient = $api->Clients->Update($client);
+```
+
+### UploadLogo
+
+Upload a logo for your client (base64 encoded).
+
+```php
+public function UploadLogo(ClientLogoUpload $logoUpload, ?string $idempotencyKey = null): void
+```
+
+<ParamField path="logoUpload" type="ClientLogoUpload" required>
+  Logo upload object with base64 encoded file
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Idempotency key
+</ParamField>
+
+**Example:**
+
+```php
+$logo = new MangoPay\ClientLogoUpload();
+$logo->File = base64_encode(file_get_contents('/path/to/logo.png'));
+
+$api->Clients->UploadLogo($logo);
+echo "Logo uploaded successfully\n";
+```
+
+### UploadLogoFromFile
+
+Upload a logo directly from a file path.
+
+```php
+public function UploadLogoFromFile(string $file, ?string $idempotencyKey = null): void
+```
+
+<ParamField path="file" type="string" required>
+  Path to the logo file
+</ParamField>
+
+**Example:**
+
+```php
+$api->Clients->UploadLogoFromFile('/path/to/logo.png');
+```
+
+<Note>
+Supported formats: GIF, PNG, JPG, JPEG, BMP, PDF, DOC. Maximum file size: ~7MB.
+</Note>
+
+### GetWallets
+
+Retrieve your client wallets (fees, credit, or default wallets).
+
+```php
+public function GetWallets(?FundsType $fundsType = null, ?Sorting $sorting = null): array
+```
+
+<ParamField path="fundsType" type="FundsType">
+  Type of wallets to retrieve (FEES, CREDIT, or null for default wallets)
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting parameters
+</ParamField>
+
+**Returns:** Array of `Wallet` objects
+
+**Example:**
+
+```php
+// Get fees wallets
+$feesWallets = $api->Clients->GetWallets(MangoPay\FundsType::FEES);
+foreach ($feesWallets as $wallet) {
+    echo "Fees wallet {$wallet->Currency}: " . 
+         ($wallet->Balance->Amount / 100) . " {$wallet->Currency}\n";
+}
+
+// Get credit wallets
+$creditWallets = $api->Clients->GetWallets(MangoPay\FundsType::CREDIT);
+foreach ($creditWallets as $wallet) {
+    echo "Credit wallet {$wallet->Currency}: " . 
+         ($wallet->Balance->Amount / 100) . " {$wallet->Currency}\n";
+}
+```
+
+### GetWallet
+
+Retrieve a specific client wallet by type and currency.
+
+```php
+public function GetWallet(FundsType $fundsType, CurrencyIso $currencyIso): Wallet
+```
+
+<ParamField path="fundsType" type="FundsType" required>
+  Type of wallet (FEES or CREDIT)
+</ParamField>
+
+<ParamField path="currencyIso" type="CurrencyIso" required>
+  Currency code (EUR, USD, GBP, etc.)
+</ParamField>
+
+**Returns:** `Wallet` object
+
+**Example:**
+
+```php
+$feesWalletEUR = $api->Clients->GetWallet(
+    MangoPay\FundsType::FEES,
+    MangoPay\CurrencyIso::EUR
+);
+
+echo "EUR fees balance: €" . ($feesWalletEUR->Balance->Amount / 100) . "\n";
+```
+
+### GetWalletTransactions
+
+Retrieve transactions for client wallets.
+
+```php
+public function GetWalletTransactions(?FundsType $fundsType = null, ?CurrencyIso $currencyIso = null, ?Pagination &$pagination = null, ?FilterTransactions $filter = null): array
+```
+
+<ParamField path="fundsType" type="FundsType">
+  Wallet type (FEES, CREDIT, or null for all)
+</ParamField>
+
+<ParamField path="currencyIso" type="CurrencyIso">
+  Currency filter (required if fundsType is specified)
+</ParamField>
+
+<ParamField path="pagination" type="Pagination">
+  Pagination parameters
+</ParamField>
+
+<ParamField path="filter" type="FilterTransactions">
+  Transaction filters
+</ParamField>
+
+**Returns:** Array of `Transaction` objects
+
+**Example:**
+
+```php
+// Get all fees wallet transactions for EUR
+$pagination = new MangoPay\Pagination(1, 50);
+$transactions = $api->Clients->GetWalletTransactions(
+    MangoPay\FundsType::FEES,
+    MangoPay\CurrencyIso::EUR,
+    $pagination
+);
+
+foreach ($transactions as $tx) {
+    echo "Transaction {$tx->Id}: {$tx->Type} - €" . 
+         ($tx->CreditedFunds->Amount / 100) . "\n";
+}
+```
+
+### CreateBankAccount
+
+Create a bank account for client payouts.
+
+```php
+public function CreateBankAccount(BankAccount $bankAccount, ?string $idempotencyKey = null): BankAccount
+```
+
+<ParamField path="bankAccount" type="BankAccount" required>
+  Bank account object (IBAN type)
+</ParamField>
+
+**Returns:** Created `BankAccount` object
+
+### CreatePayOut
+
+Create a payout from client wallet.
+
+```php
+public function CreatePayOut(PayOut $payOut, ?string $idempotencyKey = null): PayOut
+```
+
+<ParamField path="payOut" type="PayOut" required>
+  PayOut object
+</ParamField>
+
+**Returns:** Created `PayOut` object
+
+### CreateBankWireDirectPayIn
+
+Create a direct bank wire PayIn to settle a negative repudiation wallet balance.
+
+```php
+public function CreateBankWireDirectPayIn(PayIn $payIn, ?string $idempotencyKey = null): PayIn
+```
+
+<ParamField path="payIn" type="PayIn" required>
+  PayIn object
+</ParamField>
+
+**Returns:** Created `PayIn` object
+
+<Info>
+This method allows platforms to make a direct bank wire PayIn to their repudiation wallet to settle negative balances from lost disputes.
+</Info>
+
+## Client Entity
+
+The `Client` object contains:
+
+<ResponseField name="ClientId" type="string">
+  Your Mangopay client ID
+</ResponseField>
+
+<ResponseField name="Name" type="string">
+  Platform name
+</ResponseField>
+
+<ResponseField name="Email" type="string">
+  Primary contact email
+</ResponseField>
+
+<ResponseField name="PrimaryThemeColour" type="string">
+  Hex color code for primary theme (#RRGGBB)
+</ResponseField>
+
+<ResponseField name="PrimaryButtonColour" type="string">
+  Hex color code for primary buttons
+</ResponseField>
+
+<ResponseField name="Logo" type="string">
+  URL to your uploaded logo
+</ResponseField>
+
+<ResponseField name="TechEmails" type="array">
+  Array of technical contact emails
+</ResponseField>
+
+<ResponseField name="AdminEmails" type="array">
+  Array of admin contact emails
+</ResponseField>
+
+<ResponseField name="FraudEmails" type="array">
+  Array of fraud notification emails
+</ResponseField>
+
+<ResponseField name="BillingEmails" type="array">
+  Array of billing notification emails
+</ResponseField>
+
+<ResponseField name="PlatformDescription" type="string">
+  Description of your platform
+</ResponseField>
+
+<ResponseField name="PlatformURL" type="string">
+  Your platform website URL
+</ResponseField>
+
+<ResponseField name="HeadquartersAddress" type="Address">
+  Platform headquarters address
+</ResponseField>
+
+<ResponseField name="TaxNumber" type="string">
+  Platform tax identification number
+</ResponseField>
+
+<ResponseField name="CompanyReference" type="string">
+  Company registration number
+</ResponseField>
+
+## Complete Client Management Example
+
+```php
+// Get client information
+$client = $api->Clients->Get();
+echo "Platform: {$client->Name}\n";
+echo "Client ID: {$client->ClientId}\n";
+
+// Update branding
+$client->PrimaryThemeColour = '#824010';
+$client->PrimaryButtonColour = '#F58220';
+$client->TechEmails = ['tech@myplatform.com', 'dev@myplatform.com'];
+$client->FraudEmails = ['fraud@myplatform.com'];
+
+$updatedClient = $api->Clients->Update($client);
+
+// Upload logo
+$api->Clients->UploadLogoFromFile('/path/to/platform-logo.png');
+
+// Check fees collected
+$feesWallets = $api->Clients->GetWallets(MangoPay\FundsType::FEES);
+
+foreach ($feesWallets as $wallet) {
+    $balance = $wallet->Balance->Amount / 100;
+    echo "Collected fees in {$wallet->Currency}: {$balance}\n";
+    
+    // Get recent fees transactions
+    $pagination = new MangoPay\Pagination(1, 10);
+    $transactions = $api->Clients->GetWalletTransactions(
+        MangoPay\FundsType::FEES,
+        $wallet->Currency,
+        $pagination
+    );
+    
+    echo "Recent fees transactions:\n";
+    foreach ($transactions as $tx) {
+        $amount = $tx->CreditedFunds->Amount / 100;
+        echo "  {$tx->CreationDate}: +{$amount} {$wallet->Currency}\n";
+    }
+}
+```
+
+## Monitoring Platform Finances
+
+```php
+class PlatformFinanceDashboard {
+    private $api;
+    
+    public function __construct($api) {
+        $this->api = $api;
+    }
+    
+    public function getFeesBreakdown() {
+        $feesWallets = $this->api->Clients->GetWallets(MangoPay\FundsType::FEES);
+        
+        $breakdown = [];
+        foreach ($feesWallets as $wallet) {
+            $currency = $wallet->Currency;
+            $balance = $wallet->Balance->Amount / 100;
+            
+            // Get monthly fees
+            $filter = new MangoPay\FilterTransactions();
+            $filter->AfterDate = strtotime('first day of this month');
+            
+            $transactions = $this->api->Clients->GetWalletTransactions(
+                MangoPay\FundsType::FEES,
+                $currency,
+                null,
+                $filter
+            );
+            
+            $monthlyFees = array_reduce($transactions, function($sum, $tx) {
+                return $sum + $tx->CreditedFunds->Amount;
+            }, 0) / 100;
+            
+            $breakdown[$currency] = [
+                'balance' => $balance,
+                'monthly_fees' => $monthlyFees,
+                'transaction_count' => count($transactions)
+            ];
+        }
+        
+        return $breakdown;
+    }
+    
+    public function getCreditBalances() {
+        $creditWallets = $this->api->Clients->GetWallets(MangoPay\FundsType::CREDIT);
+        
+        $balances = [];
+        foreach ($creditWallets as $wallet) {
+            $balances[$wallet->Currency] = $wallet->Balance->Amount / 100;
+        }
+        
+        return $balances;
+    }
+}
+
+$dashboard = new PlatformFinanceDashboard($api);
+
+echo "Fees Breakdown:\n";
+print_r($dashboard->getFeesBreakdown());
+
+echo "\nCredit Balances:\n";
+print_r($dashboard->getCreditBalances());
+```
+
+<Tip>
+**Client Wallets:**
+- **Fees Wallets**: Accumulate fees charged on transactions
+- **Credit Wallets**: Hold credits provided by Mangopay or for specific purposes
+- These are separate from user wallets and managed at the platform level
+</Tip>
+
+## See Also
+
+- [Configuration](/api/configuration)
+- [Wallets API](/api/wallets)
+- [PayOuts API](/api/payouts)

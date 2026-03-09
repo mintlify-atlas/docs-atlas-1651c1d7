@@ -1,0 +1,842 @@
+---
+title: 'Users'
+description: 'Manage users in your Mangopay account'
+---
+
+## Overview
+
+The Users API allows you to create and manage both natural (individual) and legal (business) users in your Mangopay platform. Users are the foundation of your payment system and can hold wallets, make transactions, and own payment methods.
+
+Mangopay supports two types of users:
+- **Natural Users**: Individual persons
+- **Legal Users**: Businesses, organizations, or other legal entities
+
+Both types come in standard and SCA (Strong Customer Authentication) variants for enhanced security.
+
+## Methods
+
+### Create
+
+Create a new user (natural or legal).
+
+```php
+public function Create($user, $idempotencyKey = null)
+```
+
+<ParamField path="user" type="UserLegal|UserNatural|UserNaturalSca|UserLegalSca" required>
+  The user object to create. Pass either a `UserNatural`, `UserNaturalSca`, `UserLegal`, or `UserLegalSca` instance.
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key to ensure request uniqueness
+</ParamField>
+
+**Returns:** `UserLegal|UserNatural|UserNaturalSca|UserLegalSca` - The created user object
+
+**Example:**
+
+```php
+$api = new MangoPay\MangoPayApi();
+
+// Create a natural user
+$user = new MangoPay\UserNatural();
+$user->FirstName = 'John';
+$user->LastName = 'Doe';
+$user->Email = 'john.doe@example.com';
+$user->Birthday = mktime(0, 0, 0, 12, 21, 1985);
+$user->Nationality = 'GB';
+$user->CountryOfResidence = 'GB';
+$user->Tag = 'Custom tag';
+
+$createdUser = $api->Users->Create($user);
+```
+
+### Get
+
+Retrieve a user by their ID.
+
+```php
+public function Get($userId)
+```
+
+<ParamField path="userId" type="string" required>
+  The unique identifier of the user
+</ParamField>
+
+**Returns:** `UserLegal|UserNatural` - The user object
+
+**Example:**
+
+```php
+$user = $api->Users->Get('user_123456');
+```
+
+### GetSca
+
+Retrieve an SCA user by their ID.
+
+```php
+public function GetSca($userId)
+```
+
+<ParamField path="userId" type="string" required>
+  The unique identifier of the user
+</ParamField>
+
+**Returns:** `UserNaturalSca|UserLegalSca` - The SCA user object
+
+**Example:**
+
+```php
+$user = $api->Users->GetSca('user_123456');
+```
+
+### GetNatural
+
+Retrieve a natural user by their ID.
+
+```php
+public function GetNatural($userId)
+```
+
+<ParamField path="userId" type="string" required>
+  The unique identifier of the natural user
+</ParamField>
+
+**Returns:** `UserNatural` - The natural user object
+
+**Example:**
+
+```php
+$user = $api->Users->GetNatural('user_123456');
+```
+
+### GetNaturalSca
+
+Retrieve an SCA natural user by their ID.
+
+```php
+public function GetNaturalSca($userId)
+```
+
+<ParamField path="userId" type="string" required>
+  The unique identifier of the natural user
+</ParamField>
+
+**Returns:** `UserNaturalSca` - The SCA natural user object
+
+### GetLegal
+
+Retrieve a legal user by their ID.
+
+```php
+public function GetLegal($userId)
+```
+
+<ParamField path="userId" type="string" required>
+  The unique identifier of the legal user
+</ParamField>
+
+**Returns:** `UserLegal` - The legal user object
+
+**Example:**
+
+```php
+$user = $api->Users->GetLegal('user_123456');
+```
+
+### GetLegalSca
+
+Retrieve an SCA legal user by their ID.
+
+```php
+public function GetLegalSca($userId)
+```
+
+<ParamField path="userId" type="string" required>
+  The unique identifier of the legal user
+</ParamField>
+
+**Returns:** `UserLegalSca` - The SCA legal user object
+
+### GetAll
+
+Retrieve all users with pagination and sorting.
+
+```php
+public function GetAll(& $pagination = null, $sorting = null)
+```
+
+<ParamField path="pagination" type="Pagination">
+  Pagination object (passed by reference, updated with total count)
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting configuration object
+</ParamField>
+
+**Returns:** `UserLegal[]|UserNatural[]` - Array of user objects
+
+**Example:**
+
+```php
+$pagination = new MangoPay\Pagination(1, 10);
+$users = $api->Users->GetAll($pagination);
+```
+
+### Update
+
+Update an existing user.
+
+```php
+public function Update($user)
+```
+
+<ParamField path="user" type="UserLegal|UserNatural" required>
+  The user object with updated properties. Must include the user's ID.
+</ParamField>
+
+**Returns:** `UserLegal|UserNatural` - The updated user object
+
+**Example:**
+
+```php
+$user = $api->Users->Get('user_123456');
+$user->Email = 'newemail@example.com';
+$updatedUser = $api->Users->Update($user);
+```
+
+### UpdateSca
+
+Update an existing SCA user.
+
+```php
+public function UpdateSca($user)
+```
+
+<ParamField path="user" type="UserLegalSca|UserNaturalSca" required>
+  The SCA user object with updated properties. Must include the user's ID.
+</ParamField>
+
+**Returns:** `UserLegalSca|UserNaturalSca` - The updated SCA user object
+
+### Categorize
+
+Transition a Natural/Legal Payer to Owner (SCA). Some parameters may be required based on the kind of transition.
+
+```php
+public function Categorize($user)
+```
+
+<ParamField path="user" type="UserLegalSca|UserNaturalSca|UserLegal|UserNatural" required>
+  The user object to categorize
+</ParamField>
+
+**Returns:** `UserLegalSca|UserNaturalSca|UserLegal|UserNatural` - The categorized user object
+
+### Close
+
+Close a user (change status to CLOSED). The resource remains available for historical purposes.
+
+```php
+public function Close($user)
+```
+
+<ParamField path="user" type="UserLegal|UserNatural|UserLegalSca|UserNaturalSca" required>
+  The user object to close. Must include the user's ID.
+</ParamField>
+
+**Returns:** void
+
+**Example:**
+
+```php
+$user = $api->Users->Get('user_123456');
+$api->Users->Close($user);
+```
+
+## User-Related Operations
+
+### Bank Accounts
+
+#### CreateBankAccount
+
+Create a bank account for a user.
+
+```php
+public function CreateBankAccount($userId, $bankAccount, $idempotencyKey = null)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+<ParamField path="bankAccount" type="BankAccount" required>
+  The bank account object to create
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key
+</ParamField>
+
+**Returns:** `BankAccount` - The created bank account
+
+**Example:**
+
+```php
+$bankAccount = new MangoPay\BankAccount();
+$bankAccount->OwnerName = 'John Doe';
+$bankAccount->Type = 'IBAN';
+$bankAccount->OwnerAddress = new MangoPay\Address();
+$bankAccount->OwnerAddress->AddressLine1 = '1 London Road';
+$bankAccount->OwnerAddress->City = 'London';
+$bankAccount->OwnerAddress->PostalCode = 'SW1A 1AA';
+$bankAccount->OwnerAddress->Country = 'GB';
+
+$details = new MangoPay\BankAccountDetailsIBAN();
+$details->IBAN = 'GB33BUKB20201555555555';
+$bankAccount->Details = $details;
+
+$createdAccount = $api->Users->CreateBankAccount('user_123456', $bankAccount);
+```
+
+#### GetBankAccount
+
+Retrieve a specific bank account for a user.
+
+```php
+public function GetBankAccount($userId, $bankAccountId)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+<ParamField path="bankAccountId" type="string" required>
+  The bank account ID
+</ParamField>
+
+**Returns:** `BankAccount` - The bank account object
+
+#### GetBankAccounts
+
+Retrieve all bank accounts for a user.
+
+```php
+public function GetBankAccounts($userId, & $pagination = null, $sorting = null, $filter = null)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+<ParamField path="pagination" type="Pagination">
+  Pagination object
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting configuration
+</ParamField>
+
+<ParamField path="filter" type="FilterBankAccounts">
+  Filter criteria
+</ParamField>
+
+**Returns:** `BankAccount[]` - Array of bank account objects
+
+#### UpdateBankAccount
+
+Update a bank account.
+
+```php
+public function UpdateBankAccount($userId, $bankAccount)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+<ParamField path="bankAccount" type="BankAccount" required>
+  The bank account object with updated properties
+</ParamField>
+
+**Returns:** `BankAccount` - The updated bank account
+
+### Wallets
+
+#### GetWallets
+
+Retrieve all wallets for a user.
+
+```php
+public function GetWallets($userId, & $pagination = null, $sorting = null, $filter = null)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+<ParamField path="pagination" type="Pagination">
+  Pagination object
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting configuration
+</ParamField>
+
+<ParamField path="filter" type="Filter">
+  Filter criteria
+</ParamField>
+
+**Returns:** `Wallet[]` - Array of wallet objects
+
+**Example:**
+
+```php
+$wallets = $api->Users->GetWallets('user_123456');
+```
+
+### Transactions
+
+#### GetTransactions
+
+Retrieve all transactions for a user.
+
+```php
+public function GetTransactions($userId, & $pagination = null, $filter = null, $sorting = null)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+<ParamField path="pagination" type="Pagination">
+  Pagination object
+</ParamField>
+
+<ParamField path="filter" type="FilterTransactions">
+  Transaction filter criteria
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting configuration
+</ParamField>
+
+**Returns:** `Transaction[]` - Array of transaction objects
+
+**Example:**
+
+```php
+$transactions = $api->Users->GetTransactions('user_123456');
+```
+
+### Cards
+
+#### GetCards
+
+Retrieve all cards for a user.
+
+```php
+public function GetCards($userId, & $pagination = null, $filter = null, $sorting = null)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+<ParamField path="pagination" type="Pagination">
+  Pagination object
+</ParamField>
+
+<ParamField path="filter" type="FilterCards">
+  Card filter criteria
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting configuration
+</ParamField>
+
+**Returns:** `Card[]` - Array of card objects
+
+**Example:**
+
+```php
+$cards = $api->Users->GetCards('user_123456');
+```
+
+### KYC Documents
+
+#### CreateKycDocument
+
+Create a new KYC (Know Your Customer) document for a user.
+
+```php
+public function CreateKycDocument($userId, $kycDocument, $idempotencyKey = null)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+<ParamField path="kycDocument" type="KycDocument" required>
+  The KYC document object
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key
+</ParamField>
+
+**Returns:** `KycDocument` - The created KYC document
+
+#### GetKycDocument
+
+Retrieve a specific KYC document.
+
+```php
+public function GetKycDocument($userId, $kycDocumentId)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+<ParamField path="kycDocumentId" type="string" required>
+  The KYC document ID
+</ParamField>
+
+**Returns:** `KycDocument` - The KYC document object
+
+#### GetKycDocuments
+
+Retrieve all KYC documents for a user.
+
+```php
+public function GetKycDocuments($userId, & $pagination = null, $sorting = null, $filter = null)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+<ParamField path="pagination" type="Pagination">
+  Pagination object
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting configuration
+</ParamField>
+
+<ParamField path="filter" type="FilterKycDocuments">
+  KYC document filter criteria
+</ParamField>
+
+**Returns:** `KycDocument[]` - Array of KYC document objects
+
+#### UpdateKycDocument
+
+Update a KYC document.
+
+```php
+public function UpdateKycDocument($userId, $kycDocument)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+<ParamField path="kycDocument" type="KycDocument" required>
+  The KYC document object with updated properties
+</ParamField>
+
+**Returns:** `KycDocument` - The updated KYC document
+
+#### CreateKycPage
+
+Create a page for a KYC document.
+
+```php
+public function CreateKycPage($userId, $kycDocumentId, $kycPage, $idempotencyKey = null)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+<ParamField path="kycDocumentId" type="string" required>
+  The KYC document ID
+</ParamField>
+
+<ParamField path="kycPage" type="KycPage" required>
+  The KYC page object containing base64 encoded file data
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key
+</ParamField>
+
+**Returns:** `true` - Always returns true on success
+
+#### CreateKycPageFromFile
+
+Create a page for a KYC document from a file path.
+
+```php
+public function CreateKycPageFromFile($userId, $kycDocumentId, $filePath, $idempotencyKey = null)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+<ParamField path="kycDocumentId" type="string" required>
+  The KYC document ID
+</ParamField>
+
+<ParamField path="filePath" type="string" required>
+  Path to the file to upload
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key
+</ParamField>
+
+**Returns:** `true` - Always returns true on success
+
+**Example:**
+
+```php
+$kycDocument = new MangoPay\KycDocument();
+$kycDocument->Type = 'IDENTITY_PROOF';
+$kycDocument = $api->Users->CreateKycDocument('user_123456', $kycDocument);
+
+$api->Users->CreateKycPageFromFile('user_123456', $kycDocument->Id, '/path/to/id.jpg');
+```
+
+### Mandates
+
+#### GetMandates
+
+Retrieve all mandates for a user.
+
+```php
+public function GetMandates($userId, & $pagination = null, $filter = null, $sorting = null)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+<ParamField path="pagination" type="Pagination">
+  Pagination object
+</ParamField>
+
+<ParamField path="filter" type="FilterTransactions">
+  Filter criteria
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting configuration
+</ParamField>
+
+**Returns:** `Mandate[]` - Array of mandate objects
+
+#### GetMandatesForBankAccount
+
+Retrieve mandates for a specific user and bank account.
+
+```php
+public function GetMandatesForBankAccount($userId, $bankAccountId, & $pagination = null, $filter = null, $sorting = null)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+<ParamField path="bankAccountId" type="string" required>
+  The bank account ID
+</ParamField>
+
+<ParamField path="pagination" type="Pagination">
+  Pagination object
+</ParamField>
+
+<ParamField path="filter" type="FilterTransactions">
+  Filter criteria
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting configuration
+</ParamField>
+
+**Returns:** `Mandate[]` - Array of mandate objects
+
+### PreAuthorizations
+
+#### GetPreAuthorizations
+
+Retrieve all pre-authorizations for a user.
+
+```php
+public function GetPreAuthorizations($userId, $pagination = null, $filter = null, $sorting = null)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+<ParamField path="pagination" type="Pagination">
+  Pagination object
+</ParamField>
+
+<ParamField path="filter" type="FilterPreAuthorizations">
+  Pre-authorization filter criteria
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting configuration
+</ParamField>
+
+**Returns:** `CardPreAuthorization[]` - Array of pre-authorization objects
+
+### EMoney
+
+#### GetEMoney
+
+Retrieve the e-money for a user for a specific year or month.
+
+```php
+public function GetEMoney($userId, $year = null, $month = null)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+<ParamField path="year" type="int">
+  The year (defaults to current year if not provided)
+</ParamField>
+
+<ParamField path="month" type="int">
+  The month (1-12). If not provided, returns yearly data.
+</ParamField>
+
+**Returns:** `EMoney` - The e-money object
+
+**Example:**
+
+```php
+// Get e-money for current year
+$emoney = $api->Users->GetEMoney('user_123456');
+
+// Get e-money for specific month
+$emoney = $api->Users->GetEMoney('user_123456', 2024, 3);
+```
+
+### Status and Compliance
+
+#### GetBlockStatus
+
+Retrieve the block status of a user.
+
+```php
+public function GetBlockStatus($userId)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+**Returns:** `UserBlockStatus` - The user block status object
+
+#### GetRegulatory
+
+Retrieve the regulatory block status of a user.
+
+```php
+public function GetRegulatory($userId)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+**Returns:** `UserBlockStatus` - The regulatory block status object
+
+#### GetScaStatus
+
+Retrieve the SCA status of a user.
+
+```php
+public function GetScaStatus($userId)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+**Returns:** `ScaStatus` - The SCA status object
+
+#### ValidateTheFormatOfUserData
+
+Check the validity of the format of user data and retrieve validation rules.
+
+```php
+public function ValidateTheFormatOfUserData($companyNumberDetails)
+```
+
+<ParamField path="companyNumberDetails" type="CompanyNumberDetails" required>
+  The company number details to validate
+</ParamField>
+
+**Returns:** `CompanyNumberDetails` - The validated company number details
+
+### SCA Enrollment
+
+#### Enroll
+
+Enroll an OWNER user in SCA (Strong Customer Authentication).
+
+```php
+public function Enroll($userId, $idempotencyKey = null)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID (must be category OWNER)
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key
+</ParamField>
+
+**Returns:** `UserEnrollmentResult` - Contains the redirect URL for SCA enrollment
+
+**Example:**
+
+```php
+$result = $api->Users->Enroll('user_123456');
+$redirectUrl = $result->PendingUserAction->RedirectUrl;
+// Redirect user to this URL for SCA enrollment
+```
+
+#### ManageConsent
+
+Manage user consent.
+
+```php
+public function ManageConsent($userId, $idempotencyKey = null)
+```
+
+<ParamField path="userId" type="string" required>
+  The user ID
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key
+</ParamField>
+
+**Returns:** `UserConsent` - The user consent object
+
+## Related Resources
+
+- [Natural Users](/api/user-natural)
+- [Legal Users](/api/user-legal)

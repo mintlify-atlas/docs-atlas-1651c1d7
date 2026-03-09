@@ -1,0 +1,265 @@
+---
+title: "Mandates"
+description: "Create and manage direct debit mandates for recurring payments"
+icon: "file-signature"
+---
+
+## Overview
+
+Mandates enable direct debit payments from bank accounts. They allow you to collect recurring payments after obtaining user authorization. The Mangopay PHP SDK provides a complete set of tools to create, retrieve, and manage mandates.
+
+## Creating a Mandate
+
+Create a new mandate linked to a user's bank account:
+
+```php
+use MangoPay\Mandate;
+
+// First, ensure the user has a bank account
+$userId = 'user_123456';
+$bankAccountId = 'bankacc_123456';
+
+$mandate = new Mandate();
+$mandate->Tag = "Monthly subscription";
+$mandate->BankAccountId = $bankAccountId;
+$mandate->ReturnURL = "https://www.mysite.com/returnURL/";
+$mandate->Culture = "EN";
+
+$createdMandate = $api->Mandates->Create($mandate);
+
+echo "Mandate ID: " . $createdMandate->Id . "\n";
+echo "Redirect URL: " . $createdMandate->RedirectURL . "\n";
+```
+
+<Note>
+  After creating a mandate, redirect the user to the `RedirectURL` to complete the authorization process.
+</Note>
+
+## Getting a Mandate
+
+Retrieve details of an existing mandate:
+
+```php
+$mandateId = 'mandate_123456';
+$mandate = $api->Mandates->Get($mandateId);
+
+echo "Status: " . $mandate->Status . "\n";
+echo "Scheme: " . $mandate->Scheme . "\n";
+echo "Bank Reference: " . $mandate->BankReference . "\n";
+```
+
+## Listing All Mandates
+
+Get all mandates with pagination, filtering, and sorting:
+
+```php
+use MangoPay\Pagination;
+use MangoPay\FilterTransactions;
+use MangoPay\Sorting;
+use MangoPay\SortDirection;
+
+$pagination = new Pagination(1, 20);
+$filter = new FilterTransactions();
+$sorting = new Sorting();
+$sorting->AddField("CreationDate", SortDirection::DESC);
+
+$mandates = $api->Mandates->GetAll($pagination, $filter, $sorting);
+
+foreach ($mandates as $mandate) {
+    echo "Mandate: " . $mandate->Id . " - Status: " . $mandate->Status . "\n";
+}
+```
+
+## Canceling a Mandate
+
+Cancel an active mandate:
+
+```php
+$mandateId = 'mandate_123456';
+
+try {
+    $canceledMandate = $api->Mandates->Cancel($mandateId);
+    echo "Mandate canceled successfully";
+} catch (\MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->getMessage();
+}
+```
+
+<Warning>
+  You can only cancel mandates with status `SUBMITTED` or `ACTIVE`. Mandates with status `CREATED` will return an error.
+</Warning>
+
+## Getting Mandate Transactions
+
+Retrieve all transactions associated with a mandate:
+
+```php
+$mandateId = 'mandate_123456';
+$pagination = new Pagination(1, 50);
+$filter = new FilterTransactions();
+$sorting = new Sorting();
+
+$transactions = $api->Mandates->GetTransactions(
+    $mandateId,
+    $pagination,
+    $filter,
+    $sorting
+);
+
+foreach ($transactions as $transaction) {
+    echo "Transaction: " . $transaction->Id . " - Amount: " . $transaction->DebitedFunds->Amount . "\n";
+}
+```
+
+## Using Mandates for Direct Debit Pay-Ins
+
+Once a mandate is active, use it to create direct debit pay-ins:
+
+```php
+use MangoPay\PayIn;
+use MangoPay\PayInPaymentDetailsDirectDebit;
+use MangoPay\PayInExecutionDetailsDirect;
+use MangoPay\Money;
+
+$mandate = $api->Mandates->Get('mandate_123456');
+$walletId = 'wallet_123456';
+$userId = 'user_123456';
+
+// Create pay-in using the mandate
+$payIn = new PayIn();
+$payIn->CreditedWalletId = $walletId;
+$payIn->AuthorId = $userId;
+
+$payIn->DebitedFunds = new Money();
+$payIn->DebitedFunds->Amount = 10000; // 100.00 EUR
+$payIn->DebitedFunds->Currency = 'EUR';
+
+$payIn->Fees = new Money();
+$payIn->Fees->Amount = 0;
+$payIn->Fees->Currency = 'EUR';
+
+// Payment details with mandate
+$payIn->PaymentDetails = new PayInPaymentDetailsDirectDebit();
+$payIn->PaymentDetails->MandateId = $mandate->Id;
+
+// Execution details
+$payIn->ExecutionDetails = new PayInExecutionDetailsDirect();
+
+$createdPayIn = $api->PayIns->Create($payIn);
+echo "Direct debit pay-in created: " . $createdPayIn->Id;
+```
+
+## Mandate Statuses
+
+Mandates progress through different statuses:
+
+- `CREATED` - Mandate created but not yet confirmed by user
+- `SUBMITTED` - User has confirmed the mandate
+- `ACTIVE` - Mandate is active and can be used for payments
+- `FAILED` - Mandate confirmation failed
+- `EXPIRED` - Mandate has expired
+
+## Mandate Schemes
+
+The SDK supports different direct debit schemes:
+
+- `SEPA` - Single Euro Payments Area direct debit
+- `BACS` - UK direct debit scheme
+
+## Complete Example
+
+Here's a complete workflow for setting up and using a mandate:
+
+```php
+use MangoPay\MangoPayApi;
+use MangoPay\Mandate;
+use MangoPay\MandateStatus;
+
+$api = new MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+$api->Config->TemporaryFolder = '/tmp/';
+
+// Step 1: Create mandate
+$mandate = new Mandate();
+$mandate->BankAccountId = 'bankacc_123456';
+$mandate->ReturnURL = "https://www.mysite.com/mandate-return";
+$mandate->Culture = "EN";
+$mandate->Tag = "Subscription-User-123";
+
+$createdMandate = $api->Mandates->Create($mandate);
+
+// Step 2: Redirect user to authorize
+header('Location: ' . $createdMandate->RedirectURL);
+exit();
+
+// Step 3: After user returns, check status
+$mandate = $api->Mandates->Get($createdMandate->Id);
+
+if ($mandate->Status === MandateStatus::Submitted || 
+    $mandate->Status === MandateStatus::Active) {
+    echo "Mandate is ready for use";
+    
+    // Step 4: Use mandate for direct debit payments
+    // (see pay-in example above)
+} else {
+    echo "Mandate not yet active: " . $mandate->Status;
+}
+```
+
+## Error Handling
+
+Handle common mandate errors:
+
+```php
+use MangoPay\Libraries\ResponseException;
+
+try {
+    $mandate = $api->Mandates->Create($mandate);
+} catch (ResponseException $e) {
+    // Handle API errors
+    echo "Error Code: " . $e->getCode() . "\n";
+    echo "Error Message: " . $e->getMessage() . "\n";
+    
+    // Get detailed error information
+    $errors = $e->GetErrorDetails();
+    foreach ($errors as $error) {
+        echo "Detail: " . $error->Message . "\n";
+    }
+} catch (\MangoPay\Libraries\Exception $e) {
+    // Handle SDK errors
+    echo "SDK Error: " . $e->getMessage();
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Store Mandate IDs" icon="database">
+    Save mandate IDs in your database to reuse them for recurring payments.
+  </Card>
+  
+  <Card title="Check Status" icon="check-circle">
+    Always verify mandate status before attempting a direct debit payment.
+  </Card>
+  
+  <Card title="Handle Webhooks" icon="webhook">
+    Set up webhooks to receive notifications about mandate status changes.
+  </Card>
+  
+  <Card title="User Communication" icon="message">
+    Clearly communicate to users when they're authorizing a mandate for recurring payments.
+  </Card>
+</CardGroup>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Bank Accounts" icon="building-columns" href="/api-reference/bank-accounts">
+    Learn how to create and manage bank accounts
+  </Card>
+  
+  <Card title="Pay-Ins" icon="money-bill-wave" href="/api-reference/payins">
+    Understand different pay-in methods
+  </Card>
+</CardGroup>

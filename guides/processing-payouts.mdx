@@ -1,0 +1,470 @@
+---
+title: 'Processing Payouts'
+description: 'Transfer funds from wallets to user bank accounts'
+---
+
+## Overview
+
+Payouts allow you to transfer funds from a user's Mangopay wallet to their bank account. Before processing a payout:
+
+1. The user must have a verified bank account
+2. The wallet must have sufficient funds
+3. The user must pass KYC verification (for amounts above thresholds)
+
+## Creating a Bank Wire Payout
+
+<Steps>
+  <Step title="Ensure Prerequisites">
+    Verify the user has a bank account and sufficient funds:
+    
+    ```php
+    // Check wallet balance
+    $wallet = $api->Wallets->Get($walletId);
+    $availableBalance = $wallet->Balance->Amount;
+    
+    // Get user's bank account
+    $bankAccounts = $api->Users->GetBankAccounts($userId);
+    if (empty($bankAccounts)) {
+        throw new Exception('User has no bank account');
+    }
+    $bankAccountId = $bankAccounts[0]->Id;
+    ```
+  </Step>
+
+  <Step title="Create the Payout">
+    Create a payout object:
+    
+    ```php
+    $payout = new MangoPay\PayOut();
+    $payout->AuthorId = $userId;
+    $payout->DebitedWalletId = $walletId;
+    $payout->DebitedFunds = new MangoPay\Money();
+    $payout->DebitedFunds->Currency = 'EUR';
+    $payout->DebitedFunds->Amount = 5000; // 50.00 EUR
+    $payout->Fees = new MangoPay\Money();
+    $payout->Fees->Currency = 'EUR';
+    $payout->Fees->Amount = 0; // No fees
+    
+    // Bank wire details
+    $payout->MeanOfPaymentDetails = new MangoPay\PayOutPaymentDetailsBankWire();
+    $payout->MeanOfPaymentDetails->BankAccountId = $bankAccountId;
+    $payout->MeanOfPaymentDetails->BankWireRef = 'Invoice #12345';
+    ```
+  </Step>
+
+  <Step title="Submit to API">
+    Process the payout:
+    
+    ```php
+    try {
+        $createdPayout = $api->PayOuts->Create($payout);
+        
+        if ($createdPayout->Status === 'SUCCEEDED') {
+            echo "Payout successful!";
+        } elseif ($createdPayout->Status === 'CREATED') {
+            echo "Payout is being processed";
+        } elseif ($createdPayout->Status === 'FAILED') {
+            echo "Payout failed: " . $createdPayout->ResultMessage;
+        }
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        echo "Error: " . $e->GetMessage();
+    }
+    ```
+  </Step>
+</Steps>
+
+## Complete Payout Example
+
+```php
+function processPayout($api, $userId, $walletId, $amount, $currency = 'EUR') {
+    try {
+        // Get bank account
+        $bankAccounts = $api->Users->GetBankAccounts($userId);
+        if (empty($bankAccounts)) {
+            throw new Exception('No bank account found for user');
+        }
+        
+        // Get first active bank account
+        $bankAccount = null;
+        foreach ($bankAccounts as $account) {
+            if ($account->Active) {
+                $bankAccount = $account;
+                break;
+            }
+        }
+        
+        if (!$bankAccount) {
+            throw new Exception('No active bank account found');
+        }
+        
+        // Check wallet balance
+        $wallet = $api->Wallets->Get($walletId);
+        if ($wallet->Balance->Amount < $amount) {
+            throw new Exception('Insufficient funds in wallet');
+        }
+        
+        // Create payout
+        $payout = new MangoPay\PayOut();
+        $payout->AuthorId = $userId;
+        $payout->DebitedWalletId = $walletId;
+        $payout->DebitedFunds = new MangoPay\Money();
+        $payout->DebitedFunds->Currency = $currency;
+        $payout->DebitedFunds->Amount = $amount;
+        $payout->Fees = new MangoPay\Money();
+        $payout->Fees->Currency = $currency;
+        $payout->Fees->Amount = 0;
+        
+        $payout->MeanOfPaymentDetails = new MangoPay\PayOutPaymentDetailsBankWire();
+        $payout->MeanOfPaymentDetails->BankAccountId = $bankAccount->Id;
+        
+        // Create with idempotency
+        $idempotencyKey = 'payout_' . $userId . '_' . time();
+        $createdPayout = $api->PayOuts->Create($payout, $idempotencyKey);
+        
+        return $createdPayout;
+    } catch (MangoPay\Libraries\ResponseException $e) {
+        error_log("Payout failed: " . $e->GetMessage());
+        throw $e;
+    }
+}
+
+// Usage
+try {
+    $payout = processPayout($api, $userId, $walletId, 10000); // 100.00 EUR
+    echo "Payout ID: " . $payout->Id;
+} catch (Exception $e) {
+    echo "Error: " . $e->getMessage();
+}
+```
+
+## Instant Payouts
+
+Check if a bank account is eligible for instant payout:
+
+```php
+$eligibilityRequest = new MangoPay\PayOutEligibilityRequest();
+$eligibilityRequest->AuthorId = $userId;
+$eligibilityRequest->DebitedFunds = new MangoPay\Money();
+$eligibilityRequest->DebitedFunds->Currency = 'EUR';
+$eligibilityRequest->DebitedFunds->Amount = 10000;
+$eligibilityRequest->Fees = new MangoPay\Money();
+$eligibilityRequest->Fees->Currency = 'EUR';
+$eligibilityRequest->Fees->Amount = 0;
+$eligibilityRequest->DebitedWalletId = $walletId;
+$eligibilityRequest->PayoutModeRequested = 'INSTANT_PAYMENT';
+
+// Bank wire details
+$eligibilityRequest->MeanOfPaymentDetails = new MangoPay\PayOutPaymentDetailsBankWire();
+$eligibilityRequest->MeanOfPaymentDetails->BankAccountId = $bankAccountId;
+
+try {
+    $eligibility = $api->PayOuts->CheckInstantPayoutEligibility($eligibilityRequest);
+    
+    if ($eligibility->InstantPayout->IsReachable) {
+        echo "Instant payout is available";
+        
+        // Create instant payout
+        $payout = new MangoPay\PayOut();
+        $payout->AuthorId = $userId;
+        $payout->DebitedWalletId = $walletId;
+        $payout->DebitedFunds = new MangoPay\Money();
+        $payout->DebitedFunds->Currency = 'EUR';
+        $payout->DebitedFunds->Amount = 10000;
+        $payout->Fees = new MangoPay\Money();
+        $payout->Fees->Currency = 'EUR';
+        $payout->Fees->Amount = 0;
+        $payout->PayoutModeRequested = 'INSTANT_PAYMENT';
+        
+        $payout->MeanOfPaymentDetails = new MangoPay\PayOutPaymentDetailsBankWire();
+        $payout->MeanOfPaymentDetails->BankAccountId = $bankAccountId;
+        
+        $instantPayout = $api->PayOuts->Create($payout);
+    } else {
+        echo "Instant payout not available. Reason: " . 
+             $eligibility->InstantPayout->ReasonMessage;
+    }
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Retrieving Payouts
+
+### Get a Specific Payout
+
+```php
+try {
+    $payout = $api->PayOuts->Get($payoutId);
+    
+    echo "Status: " . $payout->Status . "\n";
+    echo "Amount: " . ($payout->DebitedFunds->Amount / 100) . "\n";
+    echo "Currency: " . $payout->DebitedFunds->Currency . "\n";
+    echo "Bank Account: " . $payout->MeanOfPaymentDetails->BankAccountId;
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+### Get Payout with Bank Wire Details
+
+```php
+$payout = $api->PayOuts->GetBankwire($payoutId);
+
+echo "Bank wire reference: " . $payout->MeanOfPaymentDetails->BankWireRef;
+```
+
+## Payout Statuses
+
+Payouts can have the following statuses:
+
+- **CREATED**: Payout has been created and is pending processing
+- **SUCCEEDED**: Funds have been successfully transferred
+- **FAILED**: Payout failed (check ResultMessage for details)
+
+```php
+$payout = $api->PayOuts->Get($payoutId);
+
+switch ($payout->Status) {
+    case 'CREATED':
+        echo "Payout is being processed";
+        break;
+    case 'SUCCEEDED':
+        echo "Payout completed successfully";
+        break;
+    case 'FAILED':
+        echo "Payout failed: " . $payout->ResultMessage;
+        echo "\nResult code: " . $payout->ResultCode;
+        break;
+}
+```
+
+## Payout Fees
+
+You can charge fees on payouts:
+
+```php
+$payout = new MangoPay\PayOut();
+$payout->AuthorId = $userId;
+$payout->DebitedWalletId = $walletId;
+$payout->DebitedFunds = new MangoPay\Money();
+$payout->DebitedFunds->Currency = 'EUR';
+$payout->DebitedFunds->Amount = 10000; // 100.00 EUR
+
+// Add a fee (deducted from the payout amount)
+$payout->Fees = new MangoPay\Money();
+$payout->Fees->Currency = 'EUR';
+$payout->Fees->Amount = 200; // 2.00 EUR fee
+
+$payout->MeanOfPaymentDetails = new MangoPay\PayOutPaymentDetailsBankWire();
+$payout->MeanOfPaymentDetails->BankAccountId = $bankAccountId;
+
+$createdPayout = $api->PayOuts->Create($payout);
+
+// User receives: 98.00 EUR (100.00 - 2.00 fee)
+// Your platform receives: 2.00 EUR fee
+```
+
+## Refunding Payouts
+
+Get refunds for a payout:
+
+```php
+$pagination = new MangoPay\Pagination(1, 20);
+
+try {
+    $refunds = $api->PayOuts->GetRefunds($payoutId, $pagination);
+    
+    foreach ($refunds as $refund) {
+        echo "Refund ID: " . $refund->Id . "\n";
+        echo "Amount: " . ($refund->DebitedFunds->Amount / 100) . "\n";
+        echo "Status: " . $refund->Status . "\n\n";
+    }
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Using Idempotency
+
+Prevent duplicate payouts with idempotency keys:
+
+```php
+$idempotencyKey = 'payout_' . $userId . '_' . $orderId;
+
+$payout = new MangoPay\PayOut();
+$payout->AuthorId = $userId;
+$payout->DebitedWalletId = $walletId;
+$payout->DebitedFunds = new MangoPay\Money();
+$payout->DebitedFunds->Currency = 'EUR';
+$payout->DebitedFunds->Amount = 10000;
+$payout->Fees = new MangoPay\Money();
+$payout->Fees->Currency = 'EUR';
+$payout->Fees->Amount = 0;
+
+$payout->MeanOfPaymentDetails = new MangoPay\PayOutPaymentDetailsBankWire();
+$payout->MeanOfPaymentDetails->BankAccountId = $bankAccountId;
+
+try {
+    // First call
+    $createdPayout = $api->PayOuts->Create($payout, $idempotencyKey);
+    
+    // Retry with same key returns the same payout
+    $samePayout = $api->PayOuts->Create($payout, $idempotencyKey);
+    
+    assert($createdPayout->Id === $samePayout->Id);
+} catch (MangoPay\Libraries\ResponseException $e) {
+    echo "Error: " . $e->GetMessage();
+}
+```
+
+## Batch Payouts
+
+Process multiple payouts:
+
+```php
+function processBatchPayouts($api, $payoutRequests) {
+    $results = [];
+    
+    foreach ($payoutRequests as $request) {
+        try {
+            $payout = new MangoPay\PayOut();
+            $payout->AuthorId = $request['userId'];
+            $payout->DebitedWalletId = $request['walletId'];
+            $payout->DebitedFunds = new MangoPay\Money();
+            $payout->DebitedFunds->Currency = $request['currency'];
+            $payout->DebitedFunds->Amount = $request['amount'];
+            $payout->Fees = new MangoPay\Money();
+            $payout->Fees->Currency = $request['currency'];
+            $payout->Fees->Amount = 0;
+            
+            $payout->MeanOfPaymentDetails = new MangoPay\PayOutPaymentDetailsBankWire();
+            $payout->MeanOfPaymentDetails->BankAccountId = $request['bankAccountId'];
+            
+            $idempotencyKey = 'payout_' . $request['userId'] . '_' . time();
+            $createdPayout = $api->PayOuts->Create($payout, $idempotencyKey);
+            
+            $results[] = [
+                'success' => true,
+                'payoutId' => $createdPayout->Id,
+                'userId' => $request['userId']
+            ];
+        } catch (MangoPay\Libraries\ResponseException $e) {
+            $results[] = [
+                'success' => false,
+                'error' => $e->GetMessage(),
+                'userId' => $request['userId']
+            ];
+        }
+    }
+    
+    return $results;
+}
+
+// Usage
+$payoutRequests = [
+    [
+        'userId' => 'user_123',
+        'walletId' => 'wallet_456',
+        'bankAccountId' => 'bank_789',
+        'amount' => 10000,
+        'currency' => 'EUR'
+    ],
+    [
+        'userId' => 'user_234',
+        'walletId' => 'wallet_567',
+        'bankAccountId' => 'bank_890',
+        'amount' => 15000,
+        'currency' => 'EUR'
+    ]
+];
+
+$results = processBatchPayouts($api, $payoutRequests);
+```
+
+## Common Payout Errors
+
+Handle common errors:
+
+```php
+try {
+    $payout = $api->PayOuts->Create($newPayout);
+} catch (MangoPay\Libraries\ResponseException $e) {
+    $errorDetails = $e->GetErrorDetails();
+    
+    foreach ($errorDetails as $error) {
+        switch ($error->Message) {
+            case 'Insufficient wallet balance':
+                echo "Not enough funds in wallet";
+                break;
+            case 'The bank account is not active':
+                echo "Bank account is not active";
+                break;
+            case 'Author is not KYC verified':
+                echo "User needs KYC verification";
+                break;
+            default:
+                echo "Error: " . $error->Message;
+        }
+    }
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Verify Balance First" icon="scale-balanced">
+    Always check wallet balance before creating payouts.
+  </Card>
+  
+  <Card title="Use Idempotency Keys" icon="shield">
+    Prevent duplicate payouts with idempotency keys.
+  </Card>
+  
+  <Card title="Monitor Status" icon="eye">
+    Use webhooks to track payout status changes.
+  </Card>
+  
+  <Card title="Handle Failures" icon="triangle-exclamation">
+    Implement retry logic for failed payouts.
+  </Card>
+</CardGroup>
+
+## Security Considerations
+
+<Warning>
+Ensure only authorized users can initiate payouts. Verify:
+- User identity
+- Wallet ownership
+- Bank account ownership
+- KYC compliance
+</Warning>
+
+```php
+function canUserPayout($api, $userId, $walletId, $bankAccountId) {
+    // Check wallet ownership
+    $wallet = $api->Wallets->Get($walletId);
+    if (!in_array($userId, $wallet->Owners)) {
+        return false;
+    }
+    
+    // Check bank account ownership
+    $bankAccount = $api->Users->GetBankAccount($userId, $bankAccountId);
+    if ($bankAccount->UserId !== $userId) {
+        return false;
+    }
+    
+    return true;
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Bank Accounts" icon="building-columns" href="/guides/bank-accounts">
+    Learn how to add and manage bank accounts
+  </Card>
+  
+  <Card title="Webhooks" icon="webhook" href="/guides/webhooks">
+    Set up notifications for payout status updates
+  </Card>
+</CardGroup>

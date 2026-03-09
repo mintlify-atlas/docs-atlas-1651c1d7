@@ -1,0 +1,343 @@
+---
+title: 'Users'
+description: 'Understand user types and management in Mangopay'
+icon: 'users'
+---
+
+## Overview
+
+Users are the foundation of the Mangopay platform. They represent individuals or legal entities that can hold wallets, make payments, and perform other financial operations.
+
+## User Types
+
+Mangopay supports two main types of users:
+
+<CardGroup cols={2}>
+  <Card title="Natural Users" icon="user">
+    Individual persons (consumers, freelancers)
+  </Card>
+  <Card title="Legal Users" icon="building">
+    Organizations and businesses
+  </Card>
+</CardGroup>
+
+### Natural Users
+
+Natural users represent individual persons. The `UserNatural` class includes:
+
+```php
+use MangoPay\UserNatural;
+use MangoPay\Address;
+
+$user = new UserNatural();
+$user->FirstName = "John";
+$user->LastName = "Doe";
+$user->Email = "john.doe@example.com";
+$user->Birthday = mktime(0, 0, 0, 12, 21, 1990);
+$user->Nationality = "FR";
+$user->CountryOfResidence = "FR";
+$user->Occupation = "Programmer";
+$user->IncomeRange = 3;
+$user->TermsAndConditionsAccepted = true;
+
+// Address is required
+$address = new Address();
+$address->AddressLine1 = "123 Main Street";
+$address->City = "Paris";
+$address->PostalCode = "75001";
+$address->Country = "FR";
+$user->Address = $address;
+
+$createdUser = $api->Users->Create($user);
+```
+
+Reference: ~/workspace/source/MangoPay/UserNatural.php:8
+
+#### Key Properties
+
+- `FirstName` / `LastName` - User's legal name
+- `Email` - Contact email (required)
+- `Birthday` - Unix timestamp of birth date
+- `Nationality` - ISO 3166-1 alpha-2 country code
+- `CountryOfResidence` - ISO 3166-1 alpha-2 country code
+- `Address` - Residential address
+- `Occupation` - Professional activity
+- `IncomeRange` - Income bracket (1-6)
+
+### Legal Users
+
+Legal users represent companies and organizations:
+
+```php
+use MangoPay\UserLegal;
+use MangoPay\LegalPersonType;
+use MangoPay\Address;
+
+$legalUser = new UserLegal();
+$legalUser->Name = "Tech Startup Inc";
+$legalUser->Email = "contact@techstartup.com";
+$legalUser->LegalPersonType = LegalPersonType::Business;
+$legalUser->CompanyNumber = "123456789";
+$legalUser->TermsAndConditionsAccepted = true;
+
+// Headquarters address
+$headquarters = new Address();
+$headquarters->AddressLine1 = "456 Business Avenue";
+$headquarters->City = "Paris";
+$headquarters->PostalCode = "75002";
+$headquarters->Country = "FR";
+$legalUser->HeadquartersAddress = $headquarters;
+
+// Legal representative information
+$legalUser->LegalRepresentativeFirstName = "Jane";
+$legalUser->LegalRepresentativeLastName = "Smith";
+$legalUser->LegalRepresentativeEmail = "jane.smith@techstartup.com";
+$legalUser->LegalRepresentativeBirthday = mktime(0, 0, 0, 5, 15, 1985);
+$legalUser->LegalRepresentativeNationality = "FR";
+$legalUser->LegalRepresentativeCountryOfResidence = "FR";
+
+$repAddress = new Address();
+$repAddress->AddressLine1 = "789 Rep Street";
+$repAddress->City = "Paris";
+$repAddress->PostalCode = "75003";
+$repAddress->Country = "FR";
+$legalUser->LegalRepresentativeAddress = $repAddress;
+
+$createdLegalUser = $api->Users->Create($legalUser);
+```
+
+Reference: ~/workspace/source/MangoPay/UserLegal.php:8
+
+#### Key Properties
+
+- `Name` - Legal entity name
+- `LegalPersonType` - Either `BUSINESS` or `ORGANIZATION`
+- `HeadquartersAddress` - Company address
+- `CompanyNumber` - Official registration number
+- `LegalRepresentative*` - Information about the person representing the entity
+
+## User Categories
+
+Users can be categorized as:
+
+- **PAYER** - Can only pay-in funds (simplified KYC requirements)
+- **OWNER** - Can receive funds and transfer (requires full KYC)
+
+Reference: ~/workspace/source/MangoPay/User.php:44
+
+## CRUD Operations
+
+### Create a User
+
+```php
+// The Create method automatically detects the user type
+$user = $api->Users->Create($userNatural);
+$legalUser = $api->Users->Create($userLegal);
+```
+
+Reference: ~/workspace/source/MangoPay/ApiUsers.php:16
+
+### Get a User
+
+```php
+// Get any user type
+$user = $api->Users->Get($userId);
+
+// Get specific user type
+$naturalUser = $api->Users->GetNatural($userId);
+$legalUser = $api->Users->GetLegal($userId);
+```
+
+Reference: ~/workspace/source/MangoPay/ApiUsers.php:59
+
+### Update a User
+
+```php
+$user = $api->Users->Get($userId);
+$user->Email = "newemail@example.com";
+$user->Occupation = "Designer";
+
+$updatedUser = $api->Users->Update($user);
+```
+
+Reference: ~/workspace/source/MangoPay/ApiUsers.php:126
+
+### List All Users
+
+```php
+use MangoPay\Pagination;
+use MangoPay\Sorting;
+use MangoPay\SortDirection;
+
+$pagination = new Pagination(1, 50); // Page 1, 50 items per page
+$sorting = new Sorting();
+$sorting->AddField('CreationDate', SortDirection::DESC);
+
+$users = $api->Users->GetAll($pagination, $sorting);
+```
+
+Reference: ~/workspace/source/MangoPay/ApiUsers.php:41
+
+### Close a User
+
+```php
+// Closes the user account (changes status to CLOSED)
+// The resource remains available for historical purposes
+$api->Users->Close($user);
+```
+
+Reference: ~/workspace/source/MangoPay/ApiUsers.php:592
+
+## KYC and Verification
+
+### KYC Levels
+
+- **LIGHT** - Basic verification, limited transaction amounts
+- **REGULAR** - Full verification, no transaction limits
+
+Reference: ~/workspace/source/MangoPay/User.php:26
+
+### Create KYC Document
+
+```php
+use MangoPay\KycDocument;
+
+$kycDocument = new KycDocument();
+$kycDocument->Type = 'IDENTITY_PROOF';
+
+$createdDoc = $api->Users->CreateKycDocument($userId, $kycDocument);
+```
+
+### Upload KYC Page
+
+```php
+// From file
+$api->Users->CreateKycPageFromFile(
+    $userId,
+    $kycDocumentId,
+    '/path/to/document.jpg'
+);
+
+// From base64 encoded content
+use MangoPay\KycPage;
+
+$kycPage = new KycPage();
+$kycPage->File = base64_encode(file_get_contents('/path/to/document.jpg'));
+
+$api->Users->CreateKycPage($userId, $kycDocumentId, $kycPage);
+```
+
+Reference: ~/workspace/source/MangoPay/ApiUsers.php:415
+
+### Submit KYC Document
+
+```php
+$kycDocument->Status = 'VALIDATION_ASKED';
+$api->Users->UpdateKycDocument($userId, $kycDocument);
+```
+
+## Strong Customer Authentication (SCA)
+
+For users requiring SCA, use the SCA-specific user types:
+
+```php
+use MangoPay\UserNaturalSca;
+use MangoPay\UserLegalSca;
+use MangoPay\UserCategory;
+
+$scaUser = new UserNaturalSca();
+$scaUser->FirstName = "John";
+$scaUser->LastName = "Doe";
+$scaUser->Email = "john@example.com";
+$scaUser->UserCategory = UserCategory::Owner;
+$scaUser->TermsAndConditionsAccepted = true;
+
+$createdScaUser = $api->Users->Create($scaUser);
+
+// Enroll user in SCA
+$enrollmentResult = $api->Users->Enroll($createdScaUser->Id);
+// Redirect user to: $enrollmentResult->PendingUserAction->RedirectUrl
+```
+
+Reference: ~/workspace/source/MangoPay/ApiUsers.php:557
+
+## Related Resources
+
+Users can have associated resources:
+
+### Bank Accounts
+
+```php
+use MangoPay\BankAccount;
+use MangoPay\BankAccountDetailsIBAN;
+
+$bankAccount = new BankAccount();
+$bankAccount->OwnerName = "John Doe";
+$bankAccount->OwnerAddress = $address;
+$bankAccount->Type = 'IBAN';
+
+$details = new BankAccountDetailsIBAN();
+$details->IBAN = "FR7618829754160173622224154";
+$details->BIC = "CMBRFR2BCME";
+$bankAccount->Details = $details;
+
+$createdAccount = $api->Users->CreateBankAccount($userId, $bankAccount);
+```
+
+### Wallets
+
+```php
+// Get all wallets for a user
+$wallets = $api->Users->GetWallets($userId, $pagination);
+```
+
+Reference: ~/workspace/source/MangoPay/ApiUsers.php:276
+
+### Transactions
+
+```php
+use MangoPay\FilterTransactions;
+
+$filter = new FilterTransactions();
+$filter->Type = 'PAYIN';
+$filter->Status = 'SUCCEEDED';
+
+$transactions = $api->Users->GetTransactions($userId, $pagination, $filter);
+```
+
+Reference: ~/workspace/source/MangoPay/ApiUsers.php:290
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always validate email addresses">
+    Ensure email addresses are valid and belong to the user, as they're used for important notifications.
+  </Accordion>
+  
+  <Accordion title="Store user IDs securely">
+    Map Mangopay user IDs to your application's user records in your database.
+  </Accordion>
+  
+  <Accordion title="Handle KYC requirements proactively">
+    Guide users through KYC verification before they need to perform transactions that require it.
+  </Accordion>
+  
+  <Accordion title="Use appropriate user categories">
+    Choose PAYER for users who only need to make payments, OWNER for those who need to receive funds.
+  </Accordion>
+  
+  <Accordion title="Keep user data up to date">
+    Regularly sync user information changes between your system and Mangopay.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Wallets" icon="wallet" href="/concepts/wallets">
+    Learn how to create and manage wallets
+  </Card>
+  <Card title="Payment Flows" icon="money-bill-transfer" href="/concepts/payment-flows">
+    Understand payment operations
+  </Card>
+</CardGroup>

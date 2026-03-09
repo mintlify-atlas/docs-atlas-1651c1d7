@@ -1,0 +1,501 @@
+---
+title: 'Error Handling'
+description: 'Learn how to handle errors and exceptions in the Mangopay PHP SDK'
+icon: 'triangle-exclamation'
+---
+
+## Overview
+
+Proper error handling is crucial for building robust applications with the Mangopay API. The PHP SDK provides comprehensive exception handling to help you manage errors gracefully.
+
+## Exception Types
+
+The SDK uses two main exception classes:
+
+<CardGroup cols={2}>
+  <Card title="ResponseException" icon="server">
+    API-related errors with HTTP status codes and error details
+  </Card>
+  <Card title="Exception" icon="circle-exclamation">
+    General SDK errors (configuration, validation, etc.)
+  </Card>
+</CardGroup>
+
+### ResponseException
+
+Thrown when the API returns an error response:
+
+```php
+namespace MangoPay\Libraries;
+
+class ResponseException extends Exception
+{
+    public function GetErrorDetails();  // Returns Error object with details
+    public function GetErrorCode();     // Returns HTTP status code
+    public $RequestUrl;                 // The URL that was called
+}
+```
+
+Reference: ~/workspace/source/MangoPay/Libraries/ResponseException.php:8
+
+### Exception
+
+General exception for SDK-level errors:
+
+```php
+namespace MangoPay\Libraries;
+
+class Exception extends \Exception
+{
+    // Standard PHP exception
+}
+```
+
+Reference: ~/workspace/source/MangoPay/Libraries/Exception.php:5
+
+## HTTP Status Codes
+
+The SDK maps HTTP status codes to meaningful error messages:
+
+| Code | Message | Description |
+|------|---------|-------------|
+| 200 | OK | Request succeeded |
+| 204 | No Content | Request succeeded with no response body |
+| 206 | Partial Content | Partial response returned |
+| 400 | Bad request | Invalid request parameters |
+| 401 | Unauthorized | Authentication failed or SCA required |
+| 403 | Prohibition to use the method | Access forbidden |
+| 404 | Not found | Resource doesn't exist |
+| 405 | Method not allowed | HTTP method not supported |
+| 413 | Request entity too large | Request body too large |
+| 422 | Unprocessable entity | Validation error |
+| 500 | Internal server error | Server-side error |
+| 501 | Not implemented | Endpoint not implemented |
+
+Reference: ~/workspace/source/MangoPay/Libraries/ResponseException.php:14
+
+## Basic Error Handling
+
+### Catching ResponseException
+
+```php
+use MangoPay\Libraries\ResponseException;
+use MangoPay\UserNatural;
+
+try {
+    $user = new UserNatural();
+    // Missing required fields
+    $createdUser = $api->Users->Create($user);
+} catch (ResponseException $e) {
+    echo "API Error: " . $e->getMessage() . "\n";
+    echo "HTTP Code: " . $e->GetErrorCode() . "\n";
+    echo "Request URL: " . $e->RequestUrl . "\n";
+    
+    $errorDetails = $e->GetErrorDetails();
+    if ($errorDetails) {
+        echo "Error Message: " . $errorDetails->Message . "\n";
+        
+        // Display field-specific errors
+        if (isset($errorDetails->Errors)) {
+            foreach ($errorDetails->Errors as $field => $error) {
+                echo "{$field}: {$error}\n";
+            }
+        }
+    }
+}
+```
+
+Reference: ~/workspace/source/tests/Cases/ErrorTests.php:10
+
+### Catching General Exception
+
+```php
+use MangoPay\Libraries\Exception;
+
+try {
+    $api->Users->CreateKycPageFromFile($userId, $docId, '/invalid/path.jpg');
+} catch (Exception $e) {
+    echo "SDK Error: " . $e->getMessage();
+    // "File not exist" or "Path of file cannot be empty"
+}
+```
+
+## Error Details Object
+
+When a `ResponseException` occurs, you can get detailed error information:
+
+```php
+try {
+    // Some API call
+    $result = $api->Users->Create($user);
+} catch (ResponseException $e) {
+    $details = $e->GetErrorDetails();
+    
+    if ($details) {
+        // Main error message
+        echo $details->Message;
+        
+        // Error ID for support
+        if (isset($details->Id)) {
+            echo "Error ID: " . $details->Id;
+        }
+        
+        // Error type
+        if (isset($details->Type)) {
+            echo "Error Type: " . $details->Type;
+        }
+        
+        // Field-specific errors
+        if (isset($details->Errors)) {
+            foreach ($details->Errors as $field => $message) {
+                echo "Field '{$field}': {$message}\n";
+            }
+        }
+        
+        // Additional data (e.g., redirect URLs for SCA)
+        if (isset($details->Data)) {
+            print_r($details->Data);
+        }
+    }
+}
+```
+
+## Common Error Scenarios
+
+### Validation Errors (400)
+
+```php
+try {
+    $user = new UserNatural();
+    // Missing required fields like FirstName, LastName, etc.
+    $createdUser = $api->Users->Create($user);
+} catch (ResponseException $e) {
+    if ($e->GetErrorCode() == 400) {
+        $errors = $e->GetErrorDetails()->Errors;
+        
+        foreach ($errors as $field => $message) {
+            // Show validation errors to user
+            echo "Please provide a valid {$field}: {$message}\n";
+        }
+    }
+}
+```
+
+### Authentication Errors (401)
+
+```php
+try {
+    $user = $api->Users->Get($userId);
+} catch (ResponseException $e) {
+    if ($e->GetErrorCode() == 401) {
+        // Invalid credentials or expired token
+        echo "Authentication failed. Please check your API credentials.";
+        
+        // Re-initialize the API with correct credentials
+        $api->Config->ClientId = 'correct_client_id';
+        $api->Config->ClientPassword = 'correct_password';
+    }
+}
+```
+
+### Strong Customer Authentication (401)
+
+SCA challenges return a 401 with redirect information:
+
+```php
+try {
+    $wallet = $api->Wallets->Get($walletId, "USER_PRESENT");
+} catch (ResponseException $e) {
+    if ($e->GetErrorCode() == 401) {
+        $errorDetails = $e->GetErrorDetails();
+        
+        // Check if SCA is required
+        if (isset($errorDetails->Errors['Sca'])) {
+            // Get redirect URL for SCA
+            $redirectUrl = $errorDetails->Data['RedirectUrl'];
+            
+            // Redirect user to complete authentication
+            header("Location: " . $redirectUrl);
+            exit;
+        }
+    }
+}
+```
+
+### Resource Not Found (404)
+
+```php
+try {
+    $user = $api->Users->Get('invalid_user_id');
+} catch (ResponseException $e) {
+    if ($e->GetErrorCode() == 404) {
+        echo "User not found";
+        // Handle accordingly - redirect, show error page, etc.
+    }
+}
+```
+
+### Validation Errors (422)
+
+```php
+try {
+    $transfer = new Transfer();
+    $transfer->DebitedWalletId = $walletId;
+    $transfer->CreditedWalletId = $walletId; // Same wallet!
+    $result = $api->Transfers->Create($transfer);
+} catch (ResponseException $e) {
+    if ($e->GetErrorCode() == 422) {
+        echo "Validation error: " . $e->getMessage();
+        // "Cannot transfer to the same wallet"
+    }
+}
+```
+
+### Server Errors (500)
+
+```php
+try {
+    $result = $api->PayIns->Create($payIn);
+} catch (ResponseException $e) {
+    if ($e->GetErrorCode() >= 500) {
+        // Server error - log and retry later
+        error_log("Mangopay server error: " . $e->getMessage());
+        
+        // Implement retry logic with exponential backoff
+        // or queue for later processing
+    }
+}
+```
+
+## Transaction-Specific Errors
+
+Transactions can fail after creation. Always check the status:
+
+```php
+try {
+    $payIn = $api->PayIns->Create($payIn);
+    
+    // Check transaction status
+    if ($payIn->Status === 'FAILED') {
+        // Transaction was created but failed
+        echo "Transaction failed: " . $payIn->ResultMessage;
+        echo "Result code: " . $payIn->ResultCode;
+        
+        // Handle based on result code
+        switch ($payIn->ResultCode) {
+            case '101101':
+                echo "Card transaction declined by issuer";
+                break;
+            case '101102':
+                echo "Insufficient funds";
+                break;
+            case '101103':
+                echo "Card limit exceeded";
+                break;
+            case '101104':
+                echo "Card expired";
+                break;
+            case '101105':
+                echo "Invalid card number";
+                break;
+            case '101106':
+                echo "Invalid CVV";
+                break;
+            default:
+                echo "Transaction failed with code: " . $payIn->ResultCode;
+        }
+    }
+} catch (ResponseException $e) {
+    // API-level error
+    echo "API Error: " . $e->getMessage();
+}
+```
+
+## Error Logging
+
+Implement comprehensive error logging:
+
+```php
+function logMangoPayError($e, $context = []) {
+    $logData = [
+        'timestamp' => date('Y-m-d H:i:s'),
+        'message' => $e->getMessage(),
+        'context' => $context
+    ];
+    
+    if ($e instanceof ResponseException) {
+        $logData['http_code'] = $e->GetErrorCode();
+        $logData['request_url'] = $e->RequestUrl;
+        
+        $details = $e->GetErrorDetails();
+        if ($details) {
+            $logData['error_type'] = $details->Type ?? null;
+            $logData['error_id'] = $details->Id ?? null;
+            $logData['error_message'] = $details->Message ?? null;
+            $logData['field_errors'] = $details->Errors ?? null;
+        }
+    }
+    
+    error_log(json_encode($logData));
+    
+    // Also log to your monitoring service
+    // Sentry, Bugsnag, etc.
+}
+
+try {
+    $user = $api->Users->Create($user);
+} catch (ResponseException $e) {
+    logMangoPayError($e, ['operation' => 'user_creation', 'user_email' => $user->Email]);
+    throw $e;
+}
+```
+
+## Rate Limiting
+
+Handle rate limit responses:
+
+```php
+try {
+    $result = $api->PayIns->Create($payIn);
+} catch (ResponseException $e) {
+    if ($e->GetErrorCode() == 429) {
+        // Rate limit exceeded
+        
+        // Check rate limit headers
+        $rateLimits = $api->RateLimits;
+        
+        if ($rateLimits) {
+            foreach ($rateLimits as $limit) {
+                echo "Interval: " . $limit->CallsInterval . "\n";
+                echo "Calls made: " . $limit->CallsMade . "\n";
+                echo "Calls remaining: " . $limit->CallsRemaining . "\n";
+                echo "Reset time: " . date('Y-m-d H:i:s', $limit->ResetTimeTimestamp) . "\n";
+            }
+        }
+        
+        // Wait and retry
+        sleep(60);
+        // Retry request...
+    }
+}
+```
+
+## Idempotency for Error Recovery
+
+Use idempotency keys to safely retry failed requests:
+
+```php
+use Ramsey\Uuid\Uuid;
+
+$idempotencyKey = Uuid::uuid4()->toString();
+
+try {
+    $user = $api->Users->Create($newUser, $idempotencyKey);
+} catch (ResponseException $e) {
+    if ($e->GetErrorCode() >= 500) {
+        // Network or server error - safe to retry with same key
+        sleep(2);
+        try {
+            $user = $api->Users->Create($newUser, $idempotencyKey);
+        } catch (ResponseException $retryException) {
+            logMangoPayError($retryException, ['retry_attempt' => true]);
+            throw $retryException;
+        }
+    } else {
+        // Client error - don't retry
+        throw $e;
+    }
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always catch specific exceptions first">
+    Catch `ResponseException` before generic `Exception` to handle API errors differently from SDK errors.
+  </Accordion>
+  
+  <Accordion title="Check transaction status after creation">
+    Even if no exception is thrown, transactions can have a FAILED status. Always verify.
+  </Accordion>
+  
+  <Accordion title="Log all errors with context">
+    Include relevant context (user IDs, transaction IDs, amounts) in error logs for debugging.
+  </Accordion>
+  
+  <Accordion title="Handle SCA redirects gracefully">
+    When SCA is required, preserve user context and provide a smooth redirect experience.
+  </Accordion>
+  
+  <Accordion title="Implement retry logic for transient errors">
+    Server errors (5xx) and network issues may be temporary. Implement exponential backoff.
+  </Accordion>
+  
+  <Accordion title="Use idempotency keys">
+    Always use idempotency keys for create operations to prevent duplicate transactions during retries.
+  </Accordion>
+  
+  <Accordion title="Provide user-friendly error messages">
+    Translate technical error messages into language your users can understand.
+  </Accordion>
+  
+  <Accordion title="Monitor error rates">
+    Track error patterns to identify issues with your integration or API usage.
+  </Accordion>
+</AccordionGroup>
+
+## User-Friendly Error Messages
+
+Create a helper to translate API errors:
+
+```php
+function getUserFriendlyErrorMessage(ResponseException $e): string
+{
+    $code = $e->GetErrorCode();
+    $details = $e->GetErrorDetails();
+    
+    switch ($code) {
+        case 400:
+            return "Please check the information provided and try again.";
+        case 401:
+            if (isset($details->Errors['Sca'])) {
+                return "Additional authentication required. You will be redirected.";
+            }
+            return "Authentication failed. Please try again.";
+        case 403:
+            return "You don't have permission to perform this action.";
+        case 404:
+            return "The requested resource was not found.";
+        case 422:
+            return "The provided data is invalid. Please review and try again.";
+        case 429:
+            return "Too many requests. Please wait a moment and try again.";
+        case 500:
+        case 501:
+            return "A server error occurred. Please try again later.";
+        default:
+            return "An unexpected error occurred. Please contact support if the problem persists.";
+    }
+}
+
+try {
+    $result = $api->PayIns->Create($payIn);
+} catch (ResponseException $e) {
+    $userMessage = getUserFriendlyErrorMessage($e);
+    echo $userMessage;
+    
+    // Log the technical details
+    logMangoPayError($e);
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/concepts/authentication">
+    Learn about API authentication
+  </Card>
+  <Card title="Payment Flows" icon="money-bill-transfer" href="/concepts/payment-flows">
+    Understand payment operations
+  </Card>
+</CardGroup>

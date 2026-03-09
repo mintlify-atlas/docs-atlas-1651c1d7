@@ -1,0 +1,231 @@
+---
+title: 'Identity Verification'
+description: 'Create and manage identity verification sessions for users'
+icon: 'id-card'
+---
+
+The `ApiIdentityVerification` class provides methods to create and manage identity verification sessions, which allow users to verify their identity through a hosted verification flow.
+
+## Methods
+
+### Create
+
+Creates a new identity verification session for a user.
+
+```php
+public function Create(
+    $identityVerification,
+    $userId,
+    $idempotencyKey = null
+)
+```
+
+<ParamField name="identityVerification" type="\MangoPay\IdentityVerification" required>
+  The IdentityVerification object containing session configuration (e.g., ReturnUrl)
+</ParamField>
+
+<ParamField name="userId" type="string" required>
+  The unique identifier of the user for whom to create the verification session
+</ParamField>
+
+<ParamField name="idempotencyKey" type="string" optional>
+  Unique key to ensure idempotent request processing. Use this to safely retry requests without performing the same operation twice
+</ParamField>
+
+<ResponseField name="return" type="\MangoPay\IdentityVerification">
+  The created IdentityVerification object with the HostedUrl where the user should be redirected
+</ResponseField>
+
+#### Example
+
+```php
+$api = new \MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$userId = '12345678';
+
+$identityVerification = new \MangoPay\IdentityVerification();
+$identityVerification->ReturnUrl = 'https://your-app.com/verification-complete';
+
+$result = $api->IdentityVerification->Create(
+    $identityVerification,
+    $userId,
+    'unique-idempotency-key-123'
+);
+
+echo "Verification ID: " . $result->Id . "\n";
+echo "Redirect user to: " . $result->HostedUrl . "\n";
+echo "Status: " . $result->Status . "\n";
+```
+
+---
+
+### Get
+
+Retrieves a specific identity verification session by its identifier.
+
+```php
+public function Get($id)
+```
+
+<ParamField name="id" type="string" required>
+  The unique identifier of the identity verification session
+</ParamField>
+
+<ResponseField name="return" type="\MangoPay\IdentityVerification">
+  The IdentityVerification object returned from the API
+</ResponseField>
+
+#### Example
+
+```php
+$api = new \MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$verificationId = '87654321';
+$verification = $api->IdentityVerification->Get($verificationId);
+
+echo "Status: " . $verification->Status . "\n";
+echo "User ID: " . $verification->UserId . "\n";
+
+if ($verification->Status === 'VALIDATED') {
+    echo "Identity verification successful!\n";
+} elseif ($verification->Status === 'REFUSED') {
+    echo "Identity verification refused\n";
+    // Check $verification->Checks for details
+}
+```
+
+---
+
+### GetAll
+
+Retrieves all identity verification sessions for a specific user.
+
+```php
+public function GetAll(
+    $userId,
+    $pagination = null,
+    $filter = null,
+    $sorting = null
+)
+```
+
+<ParamField name="userId" type="string" required>
+  The unique identifier of the user whose verification sessions to retrieve
+</ParamField>
+
+<ParamField name="pagination" type="\MangoPay\Pagination" optional>
+  Pagination object to control the number of results returned
+</ParamField>
+
+<ParamField name="filter" type="object" optional>
+  Object to filter verification sessions by specific criteria
+</ParamField>
+
+<ParamField name="sorting" type="\MangoPay\Sorting" optional>
+  Object to sort the results
+</ParamField>
+
+<ResponseField name="return" type="\MangoPay\IdentityVerification[]">
+  Array of IdentityVerification objects for the specified user
+</ResponseField>
+
+#### Example
+
+```php
+$api = new \MangoPay\MangoPayApi();
+$api->Config->ClientId = 'your-client-id';
+$api->Config->ClientPassword = 'your-api-key';
+
+$userId = '12345678';
+$pagination = new \MangoPay\Pagination(1, 50);
+
+$verifications = $api->IdentityVerification->GetAll($userId, $pagination);
+
+foreach ($verifications as $verification) {
+    echo "ID: " . $verification->Id . "\n";
+    echo "Status: " . $verification->Status . "\n";
+    echo "Created: " . date('Y-m-d', $verification->CreationDate) . "\n";
+    echo "---\n";
+}
+```
+
+## IdentityVerification Object
+
+The `IdentityVerification` object represents an identity verification session.
+
+<ResponseField name="Id" type="string">
+  The unique identifier of the verification session
+</ResponseField>
+
+<ResponseField name="HostedUrl" type="string">
+  The URL to redirect the user to for the hosted identity verification session. This URL is where users complete the verification process
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  The current status of the identity verification session:
+  - `PENDING` - The session is available on the HostedUrl, to which the user must be redirected to complete it
+  - `VALIDATED` - The session was successful
+  - `REFUSED` - The session was refused
+  - `REVIEW` - The session is under manual review by Mangopay
+  - `OUT_OF_DATE` - The session is no longer valid (likely due to expired documents used during the session)
+  - `TIMEOUT` - The session timed out due to inactivity
+  - `ERROR` - The session was not completed because an error occurred
+</ResponseField>
+
+<ResponseField name="ReturnUrl" type="string">
+  The URL to which the user is returned after the hosted identity verification session, regardless of the outcome
+</ResponseField>
+
+<ResponseField name="UserId" type="string">
+  The unique identifier of the user undergoing verification
+</ResponseField>
+
+<ResponseField name="LastUpdate" type="int">
+  Unix timestamp of when the verification session was last updated
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of when the verification session was created
+</ResponseField>
+
+<ResponseField name="Checks" type="Check[]">
+  Array of Check objects containing detailed verification results for different aspects of the identity verification process
+</ResponseField>
+
+## Workflow
+
+<Steps>
+  <Step title="Create verification session">
+    Call `Create()` with a user ID and return URL. The API returns a `HostedUrl`.
+  </Step>
+  
+  <Step title="Redirect user">
+    Redirect the user to the `HostedUrl` where they will complete the identity verification process.
+  </Step>
+  
+  <Step title="User completes verification">
+    The user uploads documents, takes selfies, or completes other verification steps as required.
+  </Step>
+  
+  <Step title="User returns to your app">
+    After completion (success or failure), the user is redirected to your `ReturnUrl`.
+  </Step>
+  
+  <Step title="Check verification status">
+    Use `Get()` to retrieve the session and check its `Status` and `Checks` to determine the verification outcome.
+  </Step>
+</Steps>
+
+## Best Practices
+
+<Tip>
+  Always use the `idempotencyKey` parameter when creating verification sessions to prevent duplicate sessions if the request is retried.
+</Tip>
+
+<Warning>
+  Store the verification session ID in your database so you can check its status later. The user may not complete the verification immediately.
+</Warning>

@@ -1,0 +1,287 @@
+---
+title: "ApiDisputes"
+description: "API methods for managing disputes and chargebacks"
+---
+
+## Overview
+
+The `ApiDisputes` class provides methods for managing disputes (chargebacks) in the Mangopay platform. Disputes occur when a user contests a transaction with their bank.
+
+## Methods
+
+### Get
+
+Retrieve a dispute by ID.
+
+```php
+public function Get(string $disputeId): Dispute
+```
+
+<ParamField path="disputeId" type="string" required>
+  The dispute identifier
+</ParamField>
+
+**Returns:** `Dispute` object
+
+**Example:**
+
+```php
+$dispute = $api->Disputes->Get($disputeId);
+echo "Status: " . $dispute->DisputeType;
+echo "Amount: " . $dispute->DisputedFunds->Amount;
+```
+
+### GetAll
+
+Retrieve all disputes.
+
+```php
+public function GetAll(?Pagination &$pagination = null, ?Sorting $sorting = null, ?FilterDisputes $filter = null): array
+```
+
+<ParamField path="pagination" type="Pagination">
+  Pagination parameters (passed by reference)
+</ParamField>
+
+<ParamField path="sorting" type="Sorting">
+  Sorting parameters
+</ParamField>
+
+<ParamField path="filter" type="FilterDisputes">
+  Filter disputes by status, type, etc.
+</ParamField>
+
+**Returns:** Array of `Dispute` objects
+
+**Example:**
+
+```php
+$pagination = new MangoPay\Pagination(1, 50);
+$filter = new MangoPay\FilterDisputes();
+$filter->Status = 'PENDING_CLIENT_ACTION';
+
+$disputes = $api->Disputes->GetAll($pagination, null, $filter);
+foreach ($disputes as $dispute) {
+    echo "Dispute ID: " . $dispute->Id . "\n";
+}
+```
+
+### GetPendingSettlements
+
+List disputes that need settling.
+
+```php
+public function GetPendingSettlements(?Pagination &$pagination = null, ?Sorting $sorting = null): array
+```
+
+**Returns:** Array of `Dispute` objects pending settlement
+
+### Update
+
+Update a dispute's tag.
+
+```php
+public function Update(Dispute $dispute): Dispute
+```
+
+<ParamField path="dispute" type="Dispute" required>
+  Dispute object with updated tag
+</ParamField>
+
+**Returns:** Updated `Dispute` object
+
+**Example:**
+
+```php
+$dispute = $api->Disputes->Get($disputeId);
+$dispute->Tag = 'Priority case - requires immediate action';
+$updatedDispute = $api->Disputes->Update($dispute);
+```
+
+### ContestDispute
+
+Contest a dispute by specifying contested funds.
+
+```php
+public function ContestDispute(string $disputeId, Money $contestedFunds): Dispute
+```
+
+<ParamField path="disputeId" type="string" required>
+  The dispute identifier
+</ParamField>
+
+<ParamField path="contestedFunds" type="Money" required>
+  Amount being contested
+</ParamField>
+
+**Returns:** Updated `Dispute` object
+
+**Example:**
+
+```php
+$contestedFunds = new MangoPay\Money();
+$contestedFunds->Amount = 10000;
+$contestedFunds->Currency = 'EUR';
+
+$dispute = $api->Disputes->ContestDispute($disputeId, $contestedFunds);
+```
+
+### ResubmitDispute
+
+Resubmit a dispute if it was reopened requiring more documents.
+
+```php
+public function ResubmitDispute(string $disputeId): Dispute
+```
+
+<ParamField path="disputeId" type="string" required>
+  The dispute identifier
+</ParamField>
+
+**Returns:** `Dispute` object
+
+### CloseDispute
+
+Close a dispute.
+
+```php
+public function CloseDispute(string $disputeId): Dispute
+```
+
+<ParamField path="disputeId" type="string" required>
+  The dispute identifier
+</ParamField>
+
+**Returns:** Closed `Dispute` object
+
+### GetTransactions
+
+Get transactions related to a dispute.
+
+```php
+public function GetTransactions(string $disputeId, ?Pagination &$pagination = null, ?Sorting $sorting = null, ?FilterTransactions $filter = null): array
+```
+
+**Returns:** Array of `Transaction` objects
+
+### GetDisputesForWallet
+
+Get disputes for a specific wallet.
+
+```php
+public function GetDisputesForWallet(string $walletId, ?Pagination &$pagination = null, ?Sorting $sorting = null, ?FilterDisputes $filter = null): array
+```
+
+**Returns:** Array of `Dispute` objects
+
+### GetDisputesForUser
+
+Get disputes for a specific user.
+
+```php
+public function GetDisputesForUser(string $userId, ?Pagination &$pagination = null, ?Sorting $sorting = null, ?FilterDisputes $filter = null): array
+```
+
+**Returns:** Array of `Dispute` objects
+
+### CreateSettlementTransfer
+
+Create a settlement transfer for a dispute.
+
+```php
+public function CreateSettlementTransfer(SettlementTransfer $transfer, string $repudiationId, string $idempotencyKey = null): Transfer
+```
+
+**Returns:** `Transfer` object
+
+### GetRepudiation
+
+Get repudiation details.
+
+```php
+public function GetRepudiation(string $repudiationId): Repudiation
+```
+
+**Returns:** `Repudiation` object
+
+## Dispute Entity
+
+The `Dispute` object contains:
+
+<ResponseField name="Id" type="string">
+  Unique identifier
+</ResponseField>
+
+<ResponseField name="DisputeType" type="string">
+  Type of dispute (CONTESTABLE, NOT_CONTESTABLE, RETRIEVAL)
+</ResponseField>
+
+<ResponseField name="DisputeReason" type="string">
+  Reason for dispute (DUPLICATE, FRAUD, etc.)
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  Current status (PENDING_CLIENT_ACTION, SUBMITTED, etc.)
+</ResponseField>
+
+<ResponseField name="InitialTransactionId" type="string">
+  ID of the disputed transaction
+</ResponseField>
+
+<ResponseField name="DisputedFunds" type="Money">
+  Amount being disputed
+</ResponseField>
+
+<ResponseField name="ContestedFunds" type="Money">
+  Amount you're contesting
+</ResponseField>
+
+<ResponseField name="ResultCode" type="string">
+  Result code indicating outcome
+</ResponseField>
+
+<ResponseField name="ResultMessage" type="string">
+  Human-readable result message
+</ResponseField>
+
+## Complete Workflow Example
+
+```php
+// Get all pending disputes
+$filter = new MangoPay\FilterDisputes();
+$filter->Status = 'PENDING_CLIENT_ACTION';
+$disputes = $api->Disputes->GetAll(null, null, $filter);
+
+foreach ($disputes as $dispute) {
+    if ($dispute->DisputeType === 'CONTESTABLE') {
+        // Contest the dispute
+        $contestedFunds = new MangoPay\Money();
+        $contestedFunds->Amount = $dispute->DisputedFunds->Amount;
+        $contestedFunds->Currency = $dispute->DisputedFunds->Currency;
+        
+        $api->Disputes->ContestDispute($dispute->Id, $contestedFunds);
+        
+        // Upload supporting documents
+        $doc = new MangoPay\DisputeDocument();
+        $doc->Type = 'DELIVERY_PROOF';
+        $disputeDoc = $api->DisputeDocuments->CreateDisputeDocument($doc, $dispute->Id);
+        
+        // Upload document pages
+        $api->DisputeDocuments->CreateDisputeDocumentPage(
+            $dispute->Id,
+            $disputeDoc->Id,
+            base64_encode(file_get_contents('/path/to/proof.pdf'))
+        );
+        
+        // Submit the document
+        $disputeDoc->Status = 'VALIDATION_ASKED';
+        $api->DisputeDocuments->UpdateDisputeDocument($dispute->Id, $disputeDoc);
+    }
+}
+```
+
+## See Also
+
+- [Disputes Guide](/advanced/disputes)
+- [Dispute Documents API](/api/dispute-documents)
+- [Repudiations API](/api/repudiations)

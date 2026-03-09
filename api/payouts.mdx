@@ -1,0 +1,226 @@
+---
+title: 'PayOuts'
+description: 'Create and manage payout transactions in Mangopay'
+icon: 'arrow-up-from-bracket'
+---
+
+The `ApiPayOuts` class provides methods to create and manage payout transactions, which represent funds being withdrawn from a wallet to a bank account.
+
+## Methods
+
+### Create
+
+Create a new payout.
+
+```php
+public function Create($payOut, $idempotencyKey = null)
+```
+
+<ParamField path="payOut" type="PayOut" required>
+  The PayOut object to create
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key for safe retries
+</ParamField>
+
+**Returns:** `\MangoPay\PayOut` - The created PayOut object
+
+**Example:**
+
+```php
+$payOut = new \MangoPay\PayOut();
+$payOut->AuthorId = $userId;
+$payOut->DebitedWalletId = $walletId;
+$payOut->DebitedFunds = new \MangoPay\Money();
+$payOut->DebitedFunds->Currency = 'EUR';
+$payOut->DebitedFunds->Amount = 1000;
+$payOut->Fees = new \MangoPay\Money();
+$payOut->Fees->Currency = 'EUR';
+$payOut->Fees->Amount = 10;
+
+// Set payment details
+$payOut->PaymentType = 'BANK_WIRE';
+$payOut->MeanOfPaymentDetails = new \MangoPay\PayOutPaymentDetailsBankWire();
+$payOut->MeanOfPaymentDetails->BankAccountId = $bankAccountId;
+
+$result = $api->PayOuts->Create($payOut);
+```
+
+### Get
+
+Get a payout object by ID.
+
+```php
+public function Get($payOutId)
+```
+
+<ParamField path="payOutId" type="string" required>
+  The unique identifier of the payout
+</ParamField>
+
+**Returns:** `\MangoPay\PayOut` - The PayOut object
+
+**Example:**
+
+```php
+$payOut = $api->PayOuts->Get('payout_123456');
+```
+
+### GetBankwire
+
+Get a bank wire payout object.
+
+```php
+public function GetBankwire($payOutId)
+```
+
+<ParamField path="payOutId" type="string" required>
+  The unique identifier of the payout
+</ParamField>
+
+**Returns:** `\MangoPay\PayOut` - The PayOut object
+
+**Example:**
+
+```php
+$payOut = $api->PayOuts->GetBankwire('payout_123456');
+```
+
+### GetRefunds
+
+Retrieve a list of refunds for a payout.
+
+```php
+public function GetRefunds($payOutId, & $pagination = null, $filter = null, $sorting = null)
+```
+
+<ParamField path="payOutId" type="string" required>
+  The ID of the payout
+</ParamField>
+
+<ParamField path="pagination" type="\MangoPay\Pagination">
+  Pagination object (passed by reference)
+</ParamField>
+
+<ParamField path="filter" type="\MangoPay\FilterRefunds">
+  Filtering options
+</ParamField>
+
+<ParamField path="sorting" type="\MangoPay\Sorting">
+  Sorting options
+</ParamField>
+
+**Returns:** `\MangoPay\Refund[]` - Array of Refund objects
+
+**Example:**
+
+```php
+$pagination = new \MangoPay\Pagination();
+$refunds = $api->PayOuts->GetRefunds('payout_123456', $pagination);
+```
+
+### CheckInstantPayoutEligibility
+
+Check if a destination bank account is eligible for instant payout.
+
+```php
+public function CheckInstantPayoutEligibility($payOutEligibility, $idempotencyKey = null)
+```
+
+<ParamField path="payOutEligibility" type="\MangoPay\PayOutEligibilityRequest" required>
+  The eligibility check request object
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Optional idempotency key
+</ParamField>
+
+**Returns:** `\MangoPay\PayOutEligibilityResponse` - The eligibility response
+
+**Example:**
+
+```php
+$eligibilityCheck = new \MangoPay\PayOutEligibilityRequest();
+$eligibilityCheck->AuthorId = $userId;
+$eligibilityCheck->DebitedFunds = new \MangoPay\Money();
+$eligibilityCheck->DebitedFunds->Currency = 'EUR';
+$eligibilityCheck->DebitedFunds->Amount = 1000;
+$eligibilityCheck->BankAccountId = $bankAccountId;
+
+$result = $api->PayOuts->CheckInstantPayoutEligibility($eligibilityCheck);
+```
+
+## PayOut Entity
+
+The `PayOut` entity represents a payout transaction.
+
+### Properties
+
+<ResponseField name="Id" type="string">
+  The unique identifier of the payout
+</ResponseField>
+
+<ResponseField name="CreationDate" type="int">
+  Unix timestamp of when the payout was created
+</ResponseField>
+
+<ResponseField name="Tag" type="string">
+  Custom data for your use
+</ResponseField>
+
+<ResponseField name="AuthorId" type="string" required>
+  The user ID of the payout author
+</ResponseField>
+
+<ResponseField name="CreditedUserId" type="string">
+  The user ID being credited (usually same as AuthorId for payouts)
+</ResponseField>
+
+<ResponseField name="DebitedWalletId" type="string" required>
+  The ID of the wallet being debited
+</ResponseField>
+
+<ResponseField name="DebitedFunds" type="\MangoPay\Money" required>
+  The amount debited from the wallet
+</ResponseField>
+
+<ResponseField name="CreditedFunds" type="\MangoPay\Money">
+  The amount credited to the bank account (DebitedFunds - Fees)
+</ResponseField>
+
+<ResponseField name="Fees" type="\MangoPay\Money" required>
+  The fees taken from the transaction
+</ResponseField>
+
+<ResponseField name="Status" type="string">
+  The status of the transaction: `CREATED`, `SUCCEEDED`, `FAILED`
+</ResponseField>
+
+<ResponseField name="ResultCode" type="string">
+  The result code of the transaction
+</ResponseField>
+
+<ResponseField name="ResultMessage" type="string">
+  The result message explaining the result code
+</ResponseField>
+
+<ResponseField name="ExecutionDate" type="int">
+  Unix timestamp of when the transaction was executed
+</ResponseField>
+
+<ResponseField name="Type" type="string">
+  The transaction type: `PAYOUT`
+</ResponseField>
+
+<ResponseField name="Nature" type="string">
+  The transaction nature: `REGULAR`, `REFUND`, `REPUDIATION`
+</ResponseField>
+
+<ResponseField name="PaymentType" type="string" required>
+  The payment type: `BANK_WIRE`, `MERCHANT_EXPENSE`, `AMAZON_GIFTCARD`
+</ResponseField>
+
+<ResponseField name="MeanOfPaymentDetails" type="object" required>
+  Payment-specific details object (type depends on PaymentType)
+</ResponseField>
